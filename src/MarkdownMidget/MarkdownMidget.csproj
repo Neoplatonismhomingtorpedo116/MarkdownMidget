@@ -32,6 +32,10 @@
     <EmbeddedResource Include="wwwroot\index.html;wwwroot\editor.bundle.js;wwwroot\editor.bundle.css">
       <LogicalName>wwwroot/%(Filename)%(Extension)</LogicalName>
     </EmbeddedResource>
+    <!-- User help, shown read-only via the Help menu. -->
+    <EmbeddedResource Include="..\..\HELP.md">
+      <LogicalName>HELP.md</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 
 </Project>

@@ -36,6 +36,8 @@ public partial class MainWindow : Window
     private string _cleanMarkdown = string.Empty;
     private bool _suppressDirty;
     private string? _pendingOpenPath;
+    private bool _startReadOnly;
+    private bool _readOnly;
     private readonly DispatcherTimer _dirtyTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
 
     public MainWindow()
@@ -46,8 +48,11 @@ public partial class MainWindow : Window
         SourceBox.SpellCheck.IsEnabled = true; // match the editor's default
         _dirtyTimer.Tick += async (_, _) => { _dirtyTimer.Stop(); await UpdateDirtyAsync(); };
 
-        var args = Environment.GetCommandLineArgs();
-        if (args.Length > 1 && File.Exists(args[1])) _pendingOpenPath = args[1];
+        foreach (var arg in Environment.GetCommandLineArgs().Skip(1))
+        {
+            if (arg is "--readonly" or "-r" or "/readonly") _startReadOnly = true;
+            else if (File.Exists(arg)) _pendingOpenPath ??= arg;
+        }
 
         Loaded += async (_, _) => await InitializeEditorAsync();
         Closing += MainWindow_Closing;
@@ -145,6 +150,7 @@ public partial class MainWindow : Window
                 {
                     _ = SetCleanBaselineAsync();
                 }
+                if (_startReadOnly) SetReadOnly(true);
                 break;
             case "change":
                 if (!_sourceMode)
@@ -184,6 +190,7 @@ public partial class MainWindow : Window
     /// <summary>Applies a formatting/style command to whichever surface is active.</summary>
     private void EditorCommand(string name)
     {
+        if (_readOnly) return;
         if (_sourceMode)
         {
             SourceFormat.Apply(SourceBox, name);
@@ -197,7 +204,7 @@ public partial class MainWindow : Window
     /// <summary>Inserts a markdown fragment (link/image) into the active surface.</summary>
     private void InsertMarkdownFragment(string md)
     {
-        if (string.IsNullOrEmpty(md)) return;
+        if (_readOnly || string.IsNullOrEmpty(md)) return;
         if (_sourceMode)
         {
             SourceBox.SelectedText = md;
@@ -212,6 +219,7 @@ public partial class MainWindow : Window
 
     private void InsertCodeBlock(string language)
     {
+        if (_readOnly) return;
         if (_sourceMode)
         {
             SourceFormat.InsertCodeBlock(SourceBox, language);
@@ -398,12 +406,14 @@ public partial class MainWindow : Window
 
     private void Undo_Click(object sender, RoutedEventArgs e)
     {
+        if (_readOnly) return;
         if (_sourceMode) SourceBox.Undo();
         else if (_editorReady) _ = RunEditorAsync("window.MDM.undo()");
     }
 
     private void Redo_Click(object sender, RoutedEventArgs e)
     {
+        if (_readOnly) return;
         if (_sourceMode) SourceBox.Redo();
         else if (_editorReady) _ = RunEditorAsync("window.MDM.redo()");
     }
@@ -416,6 +426,7 @@ public partial class MainWindow : Window
     /// <summary>In source mode operate on the TextBox; in WYSIWYG defer to the editor.</summary>
     private void EditOrEditor(string textBoxAction, string? editorScript)
     {
+        if (_readOnly && textBoxAction is "cut" or "paste") return;
         if (_sourceMode)
         {
             switch (textBoxAction)
@@ -604,14 +615,52 @@ public partial class MainWindow : Window
         Activate();
     }
 
-    private static void OpenInNewInstance(string path)
+    private static void OpenInNewInstance(string path, bool readOnly = false)
     {
         var exe = Environment.ProcessPath;
         if (exe is null) return;
-        try { Process.Start(new ProcessStartInfo(exe, $"\"{path}\"") { UseShellExecute = false }); }
+        var args = readOnly ? $"\"{path}\" --readonly" : $"\"{path}\"";
+        try { Process.Start(new ProcessStartInfo(exe, args) { UseShellExecute = false }); }
         catch (Exception ex)
         {
             MessageBox.Show($"Couldn't open a new window:\n{ex.Message}", "Markdown Midget",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    // ===== Read-only mode =====
+
+    private void ReadOnly_Click(object sender, RoutedEventArgs e) => SetReadOnly(MenuReadOnly.IsChecked);
+
+    private void SetReadOnly(bool on)
+    {
+        _readOnly = on;
+        MenuReadOnly.IsChecked = on;
+        SourceBox.IsReadOnly = on;
+        if (_editorReady)
+            _ = RunEditorAsync($"window.MDM.setEditable({(on ? "false" : "true")})");
+        StatusMode.Text = on ? (_sourceMode ? "Markdown source (read-only)" : "WYSIWYG (read-only)")
+                             : (_sourceMode ? "Markdown source" : "WYSIWYG");
+    }
+
+    // ===== Help (opens this guide read-only in a new instance) =====
+
+    private void Help_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var path = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "MarkdownMidget", "HELP.md");
+            var asm = Assembly.GetExecutingAssembly();
+            using (var stream = asm.GetManifestResourceStream("HELP.md"))
+            using (var file = File.Create(path))
+                stream!.CopyTo(file);
+            OpenInNewInstance(path, readOnly: true);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Couldn't open Help:\n{ex.Message}", "Markdown Midget",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }

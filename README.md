@@ -143,4 +143,7 @@ is deferred from this first iteration. Notable deferrals / divergences:
 - **Drag & drop:** dropping a file opens it in place when the window holds an
   untitled, unmodified document; otherwise it opens in a new instance. Files can
   also be passed on the command line.
+- **Read-only mode:** Edit ▸ Read Only locks the document; also available via the
+  `--readonly` command-line switch. Help ▸ View Help opens the bundled
+  [HELP.md](HELP.md) read-only in a new instance.
 - Deferred: print, page setup, find/replace, color, theming.

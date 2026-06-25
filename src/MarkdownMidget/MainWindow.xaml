@@ -58,6 +58,9 @@
                         <MenuItem Header="_Paste" InputGestureText="Ctrl+V" Click="Paste_Click" />
                         <Separator />
                         <MenuItem Header="Select _All" InputGestureText="Ctrl+A" Click="SelectAll_Click" />
+                        <Separator />
+                        <MenuItem x:Name="MenuReadOnly" Header="_Read Only"
+                                  IsCheckable="True" Click="ReadOnly_Click" />
                     </MenuItem>
                     <MenuItem Header="F_ormat">
                         <MenuItem Header="_Bold" InputGestureText="Ctrl+B" Click="Bold_Click" />
@@ -114,6 +117,8 @@
                                   IsCheckable="True" IsChecked="True" Click="SpellCheck_Click" />
                     </MenuItem>
                     <MenuItem Header="_Help">
+                        <MenuItem Header="_View Help" Click="Help_Click" />
+                        <Separator />
                         <MenuItem Header="_About Markdown Midget" Click="About_Click" />
                     </MenuItem>
                 </Menu>

@@ -320,6 +320,11 @@ const MDM = {
     if (editorView) editorView.dom.setAttribute('spellcheck', on ? 'true' : 'false');
   },
 
+  // Read-only: ProseMirror stops accepting edits and the caret/handles disappear.
+  setEditable(on) {
+    if (editorView) editorView.setProps({ editable: () => !!on });
+  },
+
   cmd(name, ...args) {
     if (!editor) return false;
     const factory = COMMANDS[name];
