@@ -136,4 +136,11 @@ is deferred from this first iteration. Notable deferrals / divergences:
   markdown; linking external/relative paths is a possible future option.
 - **Links** render styled (Nord blue, underlined) with the URL shown as a native
   hover tooltip (a `title`-attribute decoration), like a browser.
+- **Modified state is content-based:** the document is "unchanged" whenever it
+  matches the last opened/saved markdown, so undoing back to that state clears the
+  modified flag. Opening/new flushes undo history (you can't undo past the open
+  state); saving leaves history intact (you can undo past a save).
+- **Drag & drop:** dropping a file opens it in place when the window holds an
+  untitled, unmodified document; otherwise it opens in a new instance. Files can
+  also be passed on the command line.
 - Deferred: print, page setup, find/replace, color, theming.

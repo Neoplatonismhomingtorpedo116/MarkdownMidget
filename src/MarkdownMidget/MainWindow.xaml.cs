@@ -1,9 +1,11 @@
+using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Threading;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Win32;
 
@@ -28,11 +30,25 @@ public partial class MainWindow : Window
     private bool _syncingStyle;
     private bool _showMarks;
 
+    // Dirty tracking by content comparison: the document is "unchanged" whenever it
+    // matches the last opened/saved markdown — so undoing back to that state clears
+    // the modified flag, and undo past the Open state is impossible (history flushed).
+    private string _cleanMarkdown = string.Empty;
+    private bool _suppressDirty;
+    private string? _pendingOpenPath;
+    private readonly DispatcherTimer _dirtyTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
+
     public MainWindow()
     {
         InitializeComponent();
         RegisterShortcuts();
         SourceToggle.Content = GlyphSource; // start in WYSIWYG; button offers source view
+        SourceBox.SpellCheck.IsEnabled = true; // match the editor's default
+        _dirtyTimer.Tick += async (_, _) => { _dirtyTimer.Stop(); await UpdateDirtyAsync(); };
+
+        var args = Environment.GetCommandLineArgs();
+        if (args.Length > 1 && File.Exists(args[1])) _pendingOpenPath = args[1];
+
         Loaded += async (_, _) => await InitializeEditorAsync();
         Closing += MainWindow_Closing;
         UpdateTitle();
@@ -62,6 +78,9 @@ public partial class MainWindow : Window
         core.Settings.AreDefaultContextMenusEnabled = false;
         core.Settings.IsStatusBarEnabled = false;
         core.Settings.AreBrowserAcceleratorKeysEnabled = false;
+
+        // Let dropped files bubble to the window's drop handler instead of the WebView.
+        Web.AllowExternalDrop = false;
 
         // Per-launch nonce defeats WebView2's disk cache so a rebuilt editor bundle
         // is always loaded fresh (the bundle refs inside index.html are also hashed).
@@ -117,10 +136,19 @@ public partial class MainWindow : Window
                 break;
             case "ready":
                 _editorReady = true;
+                if (_pendingOpenPath is { } p)
+                {
+                    _pendingOpenPath = null;
+                    _ = OpenPathAsync(p);
+                }
+                else
+                {
+                    _ = SetCleanBaselineAsync();
+                }
                 break;
             case "change":
                 if (!_sourceMode)
-                    MarkDirty();
+                    ScheduleDirtyCheck();
                 break;
             case "selection":
                 // Reflect the block type at the cursor in the Style dropdown.
@@ -129,6 +157,15 @@ public partial class MainWindow : Window
                     using var d = JsonDocument.Parse(e.WebMessageAsJson);
                     if (d.RootElement.TryGetProperty("style", out var s))
                         SyncStyleCombo(s.GetString() ?? "paragraph");
+                }
+                break;
+            case "history":
+                if (!_sourceMode)
+                {
+                    using var d = JsonDocument.Parse(e.WebMessageAsJson);
+                    SetUndoRedoEnabled(
+                        d.RootElement.TryGetProperty("canUndo", out var cu) && cu.GetBoolean(),
+                        d.RootElement.TryGetProperty("canRedo", out var cr) && cr.GetBoolean());
                 }
                 break;
         }
@@ -150,12 +187,10 @@ public partial class MainWindow : Window
         if (_sourceMode)
         {
             SourceFormat.Apply(SourceBox, name);
-            MarkDirty();
             return;
         }
         if (!_editorReady) return;
         _ = RunEditorAsync($"window.MDM.cmd({JsLiteral(name)})");
-        MarkDirty();
         RefocusEditor();
     }
 
@@ -172,7 +207,6 @@ public partial class MainWindow : Window
         {
             _ = RunEditorAsync($"window.MDM.insertMarkdown({JsLiteral(md)})");
         }
-        MarkDirty();
         RefocusEditor();
     }
 
@@ -181,12 +215,10 @@ public partial class MainWindow : Window
         if (_sourceMode)
         {
             SourceFormat.InsertCodeBlock(SourceBox, language);
-            MarkDirty();
             return;
         }
         if (!_editorReady) return;
         _ = RunEditorAsync($"window.MDM.cmd({JsLiteral("codeblock")}, {JsLiteral(language)})");
-        MarkDirty();
         RefocusEditor();
     }
 
@@ -255,7 +287,9 @@ public partial class MainWindow : Window
             ? "Switch to formatted view (Ctrl+E)"
             : "Edit markdown source (Ctrl+E)";
 
+        if (on) SetUndoRedoEnabled(true, true); // the source TextBox manages its own undo
         RefocusEditor();
+        _ = UpdateDirtyAsync();
     }
 
     // ===== File operations =====
@@ -278,10 +312,7 @@ public partial class MainWindow : Window
     private async void New_Click(object sender, RoutedEventArgs e)
     {
         if (!await ConfirmDiscardAsync()) return;
-        await SetDocumentMarkdownAsync(string.Empty);
-        _currentPath = null;
-        _dirty = false;
-        UpdateTitle();
+        await LoadDocumentAsync(string.Empty, null);
     }
 
     private async void Open_Click(object sender, RoutedEventArgs e)
@@ -293,12 +324,31 @@ public partial class MainWindow : Window
             DefaultExt = ".md",
         };
         if (dlg.ShowDialog(this) != true) return;
+        await OpenPathAsync(dlg.FileName);
+    }
 
-        var text = await File.ReadAllTextAsync(dlg.FileName);
-        await SetDocumentMarkdownAsync(text);
-        _currentPath = dlg.FileName;
-        _dirty = false;
-        UpdateTitle();
+    private async Task OpenPathAsync(string path)
+    {
+        try
+        {
+            var text = await File.ReadAllTextAsync(path);
+            await LoadDocumentAsync(text, path);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Couldn't open the file:\n{ex.Message}", "Markdown Midget",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    /// <summary>Loads markdown into the editor and resets the clean baseline + history.</summary>
+    private async Task LoadDocumentAsync(string markdown, string? path)
+    {
+        _suppressDirty = true;
+        await SetDocumentMarkdownAsync(markdown); // setMarkdown flushes undo history
+        _currentPath = path;
+        _suppressDirty = false;
+        await SetCleanBaselineAsync();
     }
 
     private async void Save_Click(object sender, RoutedEventArgs e) => await SaveAsync(false);
@@ -323,6 +373,7 @@ public partial class MainWindow : Window
         var markdown = await GetDocumentMarkdownAsync();
         await File.WriteAllTextAsync(path, markdown);
         _currentPath = path;
+        _cleanMarkdown = markdown; // new clean baseline; undo history is left intact
         _dirty = false;
         UpdateTitle();
         return true;
@@ -345,8 +396,18 @@ public partial class MainWindow : Window
 
     // ===== Edit menu (native shortcuts also work in each surface) =====
 
-    private void Undo_Click(object sender, RoutedEventArgs e) => EditOrEditor("undo", "document.execCommand('undo')");
-    private void Redo_Click(object sender, RoutedEventArgs e) => EditOrEditor("redo", "document.execCommand('redo')");
+    private void Undo_Click(object sender, RoutedEventArgs e)
+    {
+        if (_sourceMode) SourceBox.Undo();
+        else if (_editorReady) _ = RunEditorAsync("window.MDM.undo()");
+    }
+
+    private void Redo_Click(object sender, RoutedEventArgs e)
+    {
+        if (_sourceMode) SourceBox.Redo();
+        else if (_editorReady) _ = RunEditorAsync("window.MDM.redo()");
+    }
+
     private void Cut_Click(object sender, RoutedEventArgs e) => EditOrEditor("cut", "document.execCommand('cut')");
     private void Copy_Click(object sender, RoutedEventArgs e) => EditOrEditor("copy", "document.execCommand('copy')");
     private void Paste_Click(object sender, RoutedEventArgs e) => EditOrEditor("paste", null);
@@ -510,6 +571,51 @@ public partial class MainWindow : Window
         RefocusEditor();
     }
 
+    private void SpellCheck_Click(object sender, RoutedEventArgs e)
+    {
+        var on = MenuSpellCheck.IsChecked;
+        SourceBox.SpellCheck.IsEnabled = on;
+        if (_editorReady)
+            _ = RunEditorAsync($"window.MDM.setSpellcheck({(on ? "true" : "false")})");
+        RefocusEditor();
+    }
+
+    // ===== Drag & drop: open in this instance if idle, else launch a new one =====
+
+    private void Window_DragOver(object sender, DragEventArgs e)
+    {
+        e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void Window_Drop(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetData(DataFormats.FileDrop) is not string[] files || files.Length == 0) return;
+
+        // Open the first file here only if this window holds an untitled, unmodified
+        // document; otherwise (a file is open, or there are unsaved edits) keep it and
+        // open everything in fresh instances.
+        var openHere = _currentPath is null && !_dirty;
+        for (var i = 0; i < files.Length; i++)
+        {
+            if (i == 0 && openHere) _ = OpenPathAsync(files[0]);
+            else OpenInNewInstance(files[i]);
+        }
+        Activate();
+    }
+
+    private static void OpenInNewInstance(string path)
+    {
+        var exe = Environment.ProcessPath;
+        if (exe is null) return;
+        try { Process.Start(new ProcessStartInfo(exe, $"\"{path}\"") { UseShellExecute = false }); }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Couldn't open a new window:\n{ex.Message}", "Markdown Midget",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
     private void About_Click(object sender, RoutedEventArgs e)
     {
         MessageBox.Show(
@@ -517,11 +623,43 @@ public partial class MainWindow : Window
             "About Markdown Midget", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
-    private void MarkDirty()
+    // ===== Dirty tracking (content vs. last opened/saved markdown) =====
+
+    private void ScheduleDirtyCheck()
     {
-        if (_dirty) return;
-        _dirty = true;
+        _dirtyTimer.Stop();
+        _dirtyTimer.Start();
+    }
+
+    private void Source_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_sourceMode) _ = UpdateDirtyAsync();
+    }
+
+    private async Task UpdateDirtyAsync()
+    {
+        if (_suppressDirty) return;
+        var current = await GetDocumentMarkdownAsync();
+        var dirty = !string.Equals(current, _cleanMarkdown, StringComparison.Ordinal);
+        if (dirty != _dirty)
+        {
+            _dirty = dirty;
+            UpdateTitle();
+        }
+    }
+
+    /// <summary>Marks the current content as the clean baseline (after open/save/new).</summary>
+    private async Task SetCleanBaselineAsync()
+    {
+        _cleanMarkdown = await GetDocumentMarkdownAsync();
+        _dirty = false;
         UpdateTitle();
+    }
+
+    private void SetUndoRedoEnabled(bool canUndo, bool canRedo)
+    {
+        UndoBtn.IsEnabled = UndoMenu.IsEnabled = canUndo;
+        RedoBtn.IsEnabled = RedoMenu.IsEnabled = canRedo;
     }
 
     private void UpdateTitle()

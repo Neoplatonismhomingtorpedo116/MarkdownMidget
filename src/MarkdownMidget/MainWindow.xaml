@@ -4,7 +4,8 @@
         xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         Title="Markdown Midget" Height="720" Width="1120"
         Icon="/Assets/midget-256.png"
-        WindowStartupLocation="CenterScreen">
+        WindowStartupLocation="CenterScreen"
+        AllowDrop="True" DragOver="Window_DragOver" Drop="Window_Drop">
     <Window.Resources>
         <!-- Old-school flat icon buttons (Notepad++-style), Segoe Fluent glyphs. -->
         <!-- Toolbar buttons never take focus, so clicking them can't move the
@@ -49,8 +50,8 @@
                         <MenuItem Header="E_xit" Click="Exit_Click" />
                     </MenuItem>
                     <MenuItem Header="_Edit">
-                        <MenuItem Header="_Undo" InputGestureText="Ctrl+Z" Click="Undo_Click" />
-                        <MenuItem Header="_Redo" InputGestureText="Ctrl+Y" Click="Redo_Click" />
+                        <MenuItem x:Name="UndoMenu" Header="_Undo" InputGestureText="Ctrl+Z" Click="Undo_Click" />
+                        <MenuItem x:Name="RedoMenu" Header="_Redo" InputGestureText="Ctrl+Y" Click="Redo_Click" />
                         <Separator />
                         <MenuItem Header="Cu_t" InputGestureText="Ctrl+X" Click="Cut_Click" />
                         <MenuItem Header="_Copy" InputGestureText="Ctrl+C" Click="Copy_Click" />
@@ -108,6 +109,9 @@
                     <MenuItem Header="_View">
                         <MenuItem x:Name="MenuViewSource" Header="Edit Markdown _Source"
                                   IsCheckable="True" InputGestureText="Ctrl+E" Click="ToggleSource_Click" />
+                        <Separator />
+                        <MenuItem x:Name="MenuSpellCheck" Header="_Spell Check"
+                                  IsCheckable="True" IsChecked="True" Click="SpellCheck_Click" />
                     </MenuItem>
                     <MenuItem Header="_Help">
                         <MenuItem Header="_About Markdown Midget" Click="About_Click" />
@@ -121,8 +125,8 @@
                         <Button Style="{StaticResource ToolGlyph}" ToolTip="Open (Ctrl+O)" Click="Open_Click" Content="&#xED25;" />
                         <Button Style="{StaticResource ToolGlyph}" ToolTip="Save (Ctrl+S)" Click="Save_Click" Content="&#xE74E;" />
                         <Separator />
-                        <Button Style="{StaticResource ToolGlyph}" ToolTip="Undo (Ctrl+Z)" Click="Undo_Click" Content="&#xE7A7;" />
-                        <Button Style="{StaticResource ToolGlyph}" ToolTip="Redo (Ctrl+Y)" Click="Redo_Click" Content="&#xE7A6;" />
+                        <Button x:Name="UndoBtn" Style="{StaticResource ToolGlyph}" ToolTip="Undo (Ctrl+Z)" Click="Undo_Click" Content="&#xE7A7;" />
+                        <Button x:Name="RedoBtn" Style="{StaticResource ToolGlyph}" ToolTip="Redo (Ctrl+Y)" Click="Redo_Click" Content="&#xE7A6;" />
                         <Separator />
                         <!-- Paragraph style: replaces WordPad's font-size box ("Styles, not size"). -->
                         <TextBlock Text="Style:" VerticalAlignment="Center" Margin="4,0,4,0" />
@@ -207,6 +211,7 @@
             <wv2:WebView2 x:Name="Web" />
             <TextBox x:Name="SourceBox"
                      Visibility="Collapsed"
+                     TextChanged="Source_TextChanged"
                      AcceptsReturn="True" AcceptsTab="True"
                      TextWrapping="NoWrap"
                      VerticalScrollBarVisibility="Auto"

@@ -3,10 +3,11 @@
 // pulls markdown with getMarkdown() and pushes it with setMarkdown(). The
 // WordPad-style toolbar in the WPF shell drives formatting through cmd().
 
-import { Editor, rootCtx, defaultValueCtx, editorViewOptionsCtx, commandsCtx } from '@milkdown/kit/core';
+import { Editor, rootCtx, defaultValueCtx, editorViewOptionsCtx, commandsCtx, editorViewCtx } from '@milkdown/kit/core';
 import { commonmark } from '@milkdown/kit/preset/commonmark';
 import { gfm } from '@milkdown/kit/preset/gfm';
 import { history } from '@milkdown/kit/plugin/history';
+import { undo, redo } from '@milkdown/kit/prose/history';
 import { listener, listenerCtx } from '@milkdown/kit/plugin/listener';
 import { trailing } from '@milkdown/kit/plugin/trailing';
 import { callCommand, replaceAll, getMarkdown, insert, $useKeymap, $command } from '@milkdown/kit/utils';
@@ -205,6 +206,7 @@ const COMMANDS = {
 };
 
 let editor = null;
+let editorView = null;
 let suppressChange = false;
 
 function postToHost(message) {
@@ -215,6 +217,18 @@ function postToHost(message) {
   } catch (_) {
     /* host bridge not present (e.g. running in a plain browser) */
   }
+}
+
+// Tell the host whether undo/redo are available so it can enable/disable buttons.
+// Dry-running the same commands (no dispatch) reports applicability and avoids the
+// undoDepth/redoDepth key mismatch between duplicate prosemirror-history copies.
+function postHistory() {
+  if (!editorView) return;
+  postToHost({
+    type: 'history',
+    canUndo: undo(editorView.state),
+    canRedo: redo(editorView.state),
+  });
 }
 
 const MDM = {
@@ -232,6 +246,8 @@ const MDM = {
         l.markdownUpdated(() => {
           if (suppressChange) return;
           postToHost({ type: 'change' });
+          // Defer a tick so view.state reflects the just-applied history step.
+          setTimeout(postHistory, 0);
         });
         // Report the block type at the cursor so the host can reflect it in the
         // Style dropdown/menu.
@@ -271,6 +287,8 @@ const MDM = {
       .use(headingKeymap)
       .create();
 
+    editorView = editor.ctx.get(editorViewCtx);
+    postHistory();
     postToHost({ type: 'ready' });
     return true;
   },
@@ -280,15 +298,26 @@ const MDM = {
     return editor.action(getMarkdown());
   },
 
-  setMarkdown(md) {
+  // flush=true rebuilds editor state, clearing undo history — used when loading a
+  // document so undo can't reach back past the freshly opened/new content.
+  setMarkdown(md, flush = true) {
     if (!editor) return;
     suppressChange = true;
     try {
-      editor.action(replaceAll(md || ''));
+      editor.action(replaceAll(md || '', flush));
     } finally {
       // markdownUpdated fires synchronously during the action above.
       suppressChange = false;
     }
+    if (flush) editorView = editor.ctx.get(editorViewCtx); // state was recreated
+    postHistory();
+  },
+
+  undo() { if (editorView) { undo(editorView.state, editorView.dispatch); this.focus(); } },
+  redo() { if (editorView) { redo(editorView.state, editorView.dispatch); this.focus(); } },
+
+  setSpellcheck(on) {
+    if (editorView) editorView.dom.setAttribute('spellcheck', on ? 'true' : 'false');
   },
 
   cmd(name, ...args) {
