@@ -62,7 +62,7 @@
                         <MenuItem x:Name="MenuReadOnly" Header="_Read Only"
                                   IsCheckable="True" Click="ReadOnly_Click" />
                     </MenuItem>
-                    <MenuItem Header="F_ormat">
+                    <MenuItem x:Name="FormatMenu" Header="F_ormat">
                         <MenuItem Header="_Bold" InputGestureText="Ctrl+B" Click="Bold_Click" />
                         <MenuItem Header="_Italic" InputGestureText="Ctrl+I" Click="Italic_Click" />
                         <MenuItem Header="_Underline" InputGestureText="Ctrl+U" Click="Underline_Click" />
@@ -74,7 +74,7 @@
                         <MenuItem Header="Block _Quote" Click="Quote_Click" />
                         <MenuItem Header="_Horizontal Rule" Click="Hr_Click" />
                     </MenuItem>
-                    <MenuItem Header="St_yle">
+                    <MenuItem x:Name="StyleMenu" Header="St_yle">
                         <MenuItem Header="_Paragraph" InputGestureText="Ctrl+0" Click="Style_Click" Tag="paragraph" />
                         <Separator />
                         <MenuItem Header="Heading _1" InputGestureText="Ctrl+1" Click="Style_Click" Tag="h1" />
@@ -95,7 +95,7 @@
                         <Separator />
                         <MenuItem Header="_Focus Style Box" InputGestureText="Ctrl+Shift+H" Click="FocusStyle_Click" />
                     </MenuItem>
-                    <MenuItem Header="_Insert">
+                    <MenuItem x:Name="InsertMenu" Header="_Insert">
                         <MenuItem Header="_Link…" InputGestureText="Ctrl+K" Click="Link_Click" />
                         <MenuItem Header="_Picture…" Click="Picture_Click" />
                         <Separator />
@@ -123,16 +123,21 @@
                     </MenuItem>
                 </Menu>
 
-                <!-- ===== Toolbar ===== -->
+                <!-- ===== Toolbar (File / Format / View groups) ===== -->
                 <ToolBarTray IsLocked="True">
+                    <!-- File + history: stays usable in read-only (Save As included). -->
                     <ToolBar Band="0" BandIndex="0">
                         <Button Style="{StaticResource ToolGlyph}" ToolTip="New (Ctrl+N)" Click="New_Click" Content="&#xE7C3;" />
                         <Button Style="{StaticResource ToolGlyph}" ToolTip="Open (Ctrl+O)" Click="Open_Click" Content="&#xED25;" />
                         <Button Style="{StaticResource ToolGlyph}" ToolTip="Save (Ctrl+S)" Click="Save_Click" Content="&#xE74E;" />
+                        <Button Style="{StaticResource ToolGlyph}" ToolTip="Save As… (Ctrl+Shift+S)" Click="SaveAs_Click" Content="&#xEA35;" />
                         <Separator />
                         <Button x:Name="UndoBtn" Style="{StaticResource ToolGlyph}" ToolTip="Undo (Ctrl+Z)" Click="Undo_Click" Content="&#xE7A7;" />
                         <Button x:Name="RedoBtn" Style="{StaticResource ToolGlyph}" ToolTip="Redo (Ctrl+Y)" Click="Redo_Click" Content="&#xE7A6;" />
-                        <Separator />
+                    </ToolBar>
+
+                    <!-- Formatting: disabled wholesale in read-only mode. -->
+                    <ToolBar x:Name="FormatToolBar" Band="0" BandIndex="1">
                         <!-- Paragraph style: replaces WordPad's font-size box ("Styles, not size"). -->
                         <TextBlock Text="Style:" VerticalAlignment="Center" Margin="4,0,4,0" />
                         <ComboBox x:Name="StyleCombo" Width="162" IsTabStop="False"
@@ -184,7 +189,10 @@
                         <Separator />
                         <Button Style="{StaticResource ToolGlyph}" ToolTip="Insert link (Ctrl+K)" Click="Link_Click" Content="&#xE71B;" />
                         <Button Style="{StaticResource ToolGlyph}" ToolTip="Insert picture" Click="Picture_Click" Content="&#xEB9F;" />
-                        <Separator />
+                    </ToolBar>
+
+                    <!-- View toggles: usable in read-only. -->
+                    <ToolBar Band="0" BandIndex="2">
                         <ToggleButton x:Name="SourceToggle" Style="{StaticResource ToolGlyph}"
                                       ToolTip="Edit markdown source (Ctrl+E)"
                                       Click="ToggleSource_Click" />

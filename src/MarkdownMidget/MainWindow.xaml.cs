@@ -639,8 +639,15 @@ public partial class MainWindow : Window
         SourceBox.IsReadOnly = on;
         if (_editorReady)
             _ = RunEditorAsync($"window.MDM.setEditable({(on ? "false" : "true")})");
+
+        // Gray out everything that modifies the document; Save/Save As/Open/New and
+        // the view toggles stay usable.
+        FormatToolBar.IsEnabled = FormatMenu.IsEnabled = StyleMenu.IsEnabled = InsertMenu.IsEnabled = !on;
+        SetUndoRedoEnabled(_canUndo, _canRedo); // re-gate undo/redo for read-only
+
         StatusMode.Text = on ? (_sourceMode ? "Markdown source (read-only)" : "WYSIWYG (read-only)")
                              : (_sourceMode ? "Markdown source" : "WYSIWYG");
+        UpdateTitle();
     }
 
     // ===== Help (opens this guide read-only in a new instance) =====
@@ -705,16 +712,22 @@ public partial class MainWindow : Window
         UpdateTitle();
     }
 
+    private bool _canUndo;
+    private bool _canRedo;
+
     private void SetUndoRedoEnabled(bool canUndo, bool canRedo)
     {
-        UndoBtn.IsEnabled = UndoMenu.IsEnabled = canUndo;
-        RedoBtn.IsEnabled = RedoMenu.IsEnabled = canRedo;
+        _canUndo = canUndo;
+        _canRedo = canRedo;
+        UndoBtn.IsEnabled = UndoMenu.IsEnabled = canUndo && !_readOnly;
+        RedoBtn.IsEnabled = RedoMenu.IsEnabled = canRedo && !_readOnly;
     }
 
     private void UpdateTitle()
     {
         var name = _currentPath is null ? "Untitled" : Path.GetFileName(_currentPath);
-        Title = $"{(_dirty ? "*" : "")}{name} — Markdown Midget";
+        var readOnly = _readOnly ? "          [Read Only]" : "";
+        Title = $"{(_dirty ? "*" : "")}{name}{readOnly} — Markdown Midget";
         StatusFile.Text = name;
     }
 

@@ -75,17 +75,19 @@ npm run build    # writes src/MarkdownMidget/wwwroot/editor.bundle.{js,css}
 
 ## Distribution (single-file builds)
 
-Two `Release` publish profiles, both producing a single `.exe` (the editor bundle
-is embedded). Testers need the Edge **WebView2 runtime** either way (ships with
-Windows 11).
+The **framework-dependent** profile is the standard distributable — a single ~3 MB
+`.exe` for machines that have the **.NET 10 Desktop runtime** (and the Edge
+**WebView2 runtime**, which ships with Windows 11):
 
-| Profile | Command | Size | Needs on target |
-| --- | --- | --- | --- |
-| Self-contained | `dotnet publish src/MarkdownMidget -p:PublishProfile=win-x64` | ~63 MB | nothing (runtime bundled) |
-| Framework-dependent | `dotnet publish src/MarkdownMidget -p:PublishProfile=win-x64-fxdependent` | ~2.7 MB | .NET 10 Desktop runtime |
+```sh
+dotnet publish src/MarkdownMidget -p:PublishProfile=win-x64-fxdependent
+# -> src/MarkdownMidget/bin/Release/publish/framework-dependent/MarkdownMidget.exe
+```
 
-Output: `src/MarkdownMidget/bin/Release/net10.0-windows/win-x64/publish/MarkdownMidget.exe`.
-Debug/`dotnet run` stay framework-dependent and fast.
+A fully **self-contained** profile (`win-x64`, ~63 MB, bundles the .NET runtime so
+nothing needs to be installed) also exists for one-off use; it can't be shrunk
+because WPF doesn't support trimming. The editor bundle and HELP.md are embedded
+in either build. Debug/`dotnet run` stay framework-dependent and fast.
 
 ## Icon / mascot
 

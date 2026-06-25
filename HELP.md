@@ -16,7 +16,8 @@ Both views drive the same document; switching syncs your edits across.
 
 From left to right:
 
-- **New / Open / Save** — file operations.
+- **New / Open / Save / Save As** — file operations. **Save As** uses the
+  double-disk icon and stays available even in read-only mode.
 - **Undo / Redo** — enabled only when there is something to undo/redo.
 - **Style** dropdown — the block style at the cursor (Paragraph, Heading 1–5, or a
   Code block by language). It follows your cursor and lets you switch style.
@@ -70,7 +71,10 @@ and heading ends, **↵** at manual line breaks, and **→** for tabs.
 ## Read-only mode
 
 **Edit ▸ Read Only** locks the document against changes (this Help window uses it).
-You can also start read-only from the command line with `--readonly`.
+All document-modifying controls — the formatting toolbar, the Format/Style/Insert
+menus, and Undo/Redo — gray out, while **Open / New / Save / Save As** and the
+view toggles stay available. The title bar shows **`[Read Only]`**. You can also
+start read-only from the command line with `--readonly`.
 
 ## Modified state, undo, and saving
 
