@@ -8,7 +8,7 @@ import { commonmark } from '@milkdown/kit/preset/commonmark';
 import { gfm } from '@milkdown/kit/preset/gfm';
 import { history } from '@milkdown/kit/plugin/history';
 import { listener, listenerCtx } from '@milkdown/kit/plugin/listener';
-import { callCommand, replaceAll, getMarkdown, insert, $useKeymap } from '@milkdown/kit/utils';
+import { callCommand, replaceAll, getMarkdown, insert, $useKeymap, $command } from '@milkdown/kit/utils';
 import { nord } from '@milkdown/theme-nord';
 import { prism, prismConfig } from '@milkdown/plugin-prism';
 import { $prose } from '@milkdown/kit/utils';
@@ -65,6 +65,28 @@ const linkTitle = $prose(() => new Plugin({
     },
   },
 }));
+
+// Word-like: pressing Enter at the end of a heading starts a plain paragraph
+// rather than continuing the heading. Returns false otherwise so the default
+// Enter handling still applies elsewhere.
+const splitHeadingCommand = $command('SplitHeadingToParagraph', () => () => (state, dispatch) => {
+  const { $head, empty } = state.selection;
+  if (!empty) return false;
+  const heading = $head.parent;
+  if (heading.type.name !== 'heading') return false;
+  if ($head.parentOffset < heading.content.size) return false; // only at the end
+  const paragraph = state.schema.nodes.paragraph;
+  if (!paragraph) return false;
+  if (dispatch) dispatch(state.tr.split($head.pos, 1, [{ type: paragraph }]).scrollIntoView());
+  return true;
+});
+
+const headingEnterKeymap = $useKeymap('mdmHeadingEnterKeymap', {
+  SplitHeadingToParagraph: {
+    shortcuts: 'Enter',
+    command: (ctx) => { const c = ctx.get(commandsCtx); return () => c.call(splitHeadingCommand.key); },
+  },
+});
 
 // Headings + paragraph keymap: Ctrl+1..Ctrl+5 => H1..H5, Ctrl+0 => paragraph.
 const headingKeymap = $useKeymap('mdmHeadingKeymap', {
@@ -140,6 +162,8 @@ const MDM = {
       .use(underline)
       .use(prism)
       .use(linkTitle)
+      .use(splitHeadingCommand)
+      .use(headingEnterKeymap)
       .use(headingKeymap)
       .create();
 
