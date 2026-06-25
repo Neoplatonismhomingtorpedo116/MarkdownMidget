@@ -25,6 +25,7 @@ public partial class MainWindow : Window
     private bool _dirty;
     private bool _editorReady;
     private bool _sourceMode;
+    private bool _syncingStyle;
 
     public MainWindow()
     {
@@ -131,10 +132,46 @@ public partial class MainWindow : Window
         catch { return raw; }
     }
 
+    /// <summary>Applies a formatting/style command to whichever surface is active.</summary>
     private void EditorCommand(string name)
     {
-        if (_sourceMode || !_editorReady) return;
+        if (_sourceMode)
+        {
+            SourceFormat.Apply(SourceBox, name);
+            MarkDirty();
+            return;
+        }
+        if (!_editorReady) return;
         _ = RunEditorAsync($"window.MDM.cmd({JsLiteral(name)})");
+        MarkDirty();
+    }
+
+    /// <summary>Inserts a markdown fragment (link/image) into the active surface.</summary>
+    private void InsertMarkdownFragment(string md)
+    {
+        if (string.IsNullOrEmpty(md)) return;
+        if (_sourceMode)
+        {
+            SourceBox.SelectedText = md;
+            SourceBox.Focus();
+        }
+        else if (_editorReady)
+        {
+            _ = RunEditorAsync($"window.MDM.insertMarkdown({JsLiteral(md)})");
+        }
+        MarkDirty();
+    }
+
+    private void InsertCodeBlock(string language)
+    {
+        if (_sourceMode)
+        {
+            SourceFormat.InsertCodeBlock(SourceBox, language);
+            MarkDirty();
+            return;
+        }
+        if (!_editorReady) return;
+        _ = RunEditorAsync($"window.MDM.cmd({JsLiteral("codeblock")}, {JsLiteral(language)})");
         MarkDirty();
     }
 
@@ -322,8 +359,71 @@ public partial class MainWindow : Window
 
     private void StyleCombo_Changed(object sender, SelectionChangedEventArgs e)
     {
+        if (_syncingStyle) return;
         if (StyleCombo.SelectedItem is ComboBoxItem item && item.Tag is string tag)
             EditorCommand(tag);
+    }
+
+    // ===== Style menu / focus =====
+
+    private void Style_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem item && item.Tag is string tag)
+        {
+            EditorCommand(tag);
+            SyncStyleCombo(tag);
+        }
+    }
+
+    private void SyncStyleCombo(string tag)
+    {
+        foreach (var obj in StyleCombo.Items)
+            if (obj is ComboBoxItem ci && (string?)ci.Tag == tag)
+            {
+                _syncingStyle = true;
+                StyleCombo.SelectedItem = ci;
+                _syncingStyle = false;
+                return;
+            }
+    }
+
+    private void FocusStyle_Click(object sender, RoutedEventArgs e)
+    {
+        StyleCombo.Focus();
+        StyleCombo.IsDropDownOpen = true;
+    }
+
+    // ===== Insert: link / picture / code block =====
+
+    private void Link_Click(object sender, RoutedEventArgs e)
+    {
+        var selected = _sourceMode ? SourceBox.SelectedText : string.Empty;
+        var dlg = new InputDialog("Insert Link", "Text", selected, "URL", "https://") { Owner = this };
+        if (dlg.ShowDialog() != true) return;
+        var url = dlg.Value2.Trim();
+        if (url.Length == 0) return;
+        var text = dlg.Value1.Trim();
+        if (text.Length == 0) text = url;
+        InsertMarkdownFragment($"[{text}]({url})");
+    }
+
+    private void Picture_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new OpenFileDialog
+        {
+            Title = "Insert Picture",
+            Filter = "Images (*.png;*.jpg;*.jpeg;*.gif;*.webp;*.svg)|*.png;*.jpg;*.jpeg;*.gif;*.webp;*.svg|All files (*.*)|*.*",
+        };
+        if (dlg.ShowDialog(this) != true) return;
+        var alt = Path.GetFileNameWithoutExtension(dlg.FileName);
+        var url = dlg.FileName.Replace('\\', '/');
+        InsertMarkdownFragment($"![{alt}]({url})");
+    }
+
+    private void CodeBlock_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem item)
+            InsertCodeBlock(item.Tag as string ?? string.Empty);
     }
 
     // ===== Misc UI =====
@@ -363,5 +463,16 @@ public partial class MainWindow : Window
         Bind(Key.S, ModifierKeys.Control, (_, _) => Save_Click(this, new RoutedEventArgs()));
         Bind(Key.S, ModifierKeys.Control | ModifierKeys.Shift, (_, _) => SaveAs_Click(this, new RoutedEventArgs()));
         Bind(Key.E, ModifierKeys.Control, (_, _) => ToggleSource_Click(this, new RoutedEventArgs()));
+        Bind(Key.K, ModifierKeys.Control, (_, _) => Link_Click(this, new RoutedEventArgs()));
+        Bind(Key.H, ModifierKeys.Control | ModifierKeys.Shift, (_, _) => FocusStyle_Click(this, new RoutedEventArgs()));
+
+        // Ctrl+0..Ctrl+5 apply paragraph styles (also work via the editor keymap in WYSIWYG).
+        var styleKeys = new[] { (Key.D0, "paragraph"), (Key.D1, "h1"), (Key.D2, "h2"),
+                                (Key.D3, "h3"), (Key.D4, "h4"), (Key.D5, "h5") };
+        foreach (var (key, tag) in styleKeys)
+        {
+            var t = tag;
+            Bind(key, ModifierKeys.Control, (_, _) => { EditorCommand(t); SyncStyleCombo(t); });
+        }
     }
 }

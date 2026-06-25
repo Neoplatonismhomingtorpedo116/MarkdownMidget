@@ -26,6 +26,12 @@
           '',
           '> Markdown is the native format.',
           '',
+          '```csharp',
+          'public class Greeter {',
+          '    public string Hello(string name) => $"Hi, {name}";',
+          '}',
+          '```',
+          '',
           '---',
         ].join('\n');
         await window.MDM.create(demo);

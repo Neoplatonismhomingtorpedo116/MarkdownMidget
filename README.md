@@ -32,10 +32,17 @@ editor-src/                 npm/esbuild project that bundles Milkdown -> wwwroot
 
 - `create(initialMarkdown)` — mount the editor with a document
 - `getMarkdown()` / `setMarkdown(md)` — used for file I/O and the source toggle
-- `cmd(name)` — run a formatting command (`bold`, `italic`, `underline`,
-  `strike`, `code`, `h1`..`h6`, `paragraph`, `bullet`, `ordered`, `quote`, `hr`)
+- `cmd(name, …args)` — run a formatting command (`bold`, `italic`, `underline`,
+  `strike`, `code`, `h1`..`h6`, `paragraph`, `bullet`, `ordered`, `quote`, `hr`,
+  `codeblock` (language))
+- `insertMarkdown(md)` — insert a fragment (used by the link/picture helpers)
 
 The editor posts `loaded` / `ready` / `change` messages back to the WPF host.
+Headings `Ctrl+1`..`Ctrl+5` / `Ctrl+0` (paragraph) are bound in the editor keymap
+so they work while typing in WYSIWYG; the same commands also work in the raw
+source view via the WPF shell ([SourceFormat.cs](src/MarkdownMidget/SourceFormat.cs)).
+Fenced code blocks are syntax-highlighted (Prism/refractor) for C#, JavaScript,
+TypeScript, HTML, and CSS.
 
 The editor bundle is **embedded in the assembly** and extracted to
 `%LocalAppData%\MarkdownMidget\editor` at startup, so a self-contained publish is
@@ -103,6 +110,9 @@ magick -background none -density 512 midget.svg -define icon:auto-resize=256,128
 | Save              | Ctrl+S         |
 | Save As           | Ctrl+Shift+S   |
 | Bold / Italic / Underline | Ctrl+B / Ctrl+I / Ctrl+U (in the editor) |
+| Paragraph / Heading 1–5 | Ctrl+0 / Ctrl+1 … Ctrl+5 |
+| Focus style box   | Ctrl+Shift+H   |
+| Insert link       | Ctrl+K         |
 | Toggle source     | Ctrl+E         |
 
 ## MVP scope notes
@@ -119,4 +129,8 @@ is deferred from this first iteration. Notable deferrals / divergences:
 - **Toolbar glyphs.** Old-school flat icon buttons (Segoe Fluent Icons). The
   `</>` mark is reserved for inline code; the source/WYSIWYG toggle uses braces
   (`{}`, → markdown source) and a document glyph (→ formatted view).
-- Deferred: print, page setup, find/replace, images/object insertion, color.
+- **Local picture preview.** Inserting a picture writes correct markdown
+  (`![alt](path)`), but a local-file image will not render inside the WYSIWYG
+  WebView (https origin can't load `file:` paths) — a follow-up (file mapping or
+  data-URI embed) is needed for in-editor preview.
+- Deferred: print, page setup, find/replace, color, theming.

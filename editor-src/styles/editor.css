@@ -34,38 +34,73 @@ body {
   flex-direction: column;
 }
 
+/* Block spacing follows github-markdown-css conventions: 1.5 line-height,
+   generous space between paragraphs, and extra breathing room above headings. */
 .mdm-prosemirror {
   flex: 1 1 auto;
-  padding: 64px 72px;
+  padding: 56px 72px;
   outline: none;
   font-size: 16px;
-  line-height: 1.6;
+  line-height: 1.5;
   color: #1a1a1a;
-}
-
-.mdm-prosemirror u {
-  text-decoration: underline;
 }
 
 .mdm-prosemirror:focus {
   outline: none;
 }
 
+.mdm-prosemirror p,
+.mdm-prosemirror blockquote,
+.mdm-prosemirror ul,
+.mdm-prosemirror ol,
+.mdm-prosemirror pre,
+.mdm-prosemirror table {
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+/* Headings: more space before than after, tight leading, semibold. */
+.mdm-prosemirror h1,
+.mdm-prosemirror h2,
+.mdm-prosemirror h3,
+.mdm-prosemirror h4,
+.mdm-prosemirror h5,
+.mdm-prosemirror h6 {
+  margin-top: 24px;
+  margin-bottom: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+/* The very first block shouldn't push the page down. */
+.mdm-prosemirror > :first-child {
+  margin-top: 0;
+}
+
 .mdm-prosemirror h1 {
   font-size: 2em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid #e2e4e8;
 }
 .mdm-prosemirror h2 {
-  font-size: 1.6em;
+  font-size: 1.5em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid #e2e4e8;
 }
-.mdm-prosemirror h3 {
-  font-size: 1.3em;
+.mdm-prosemirror h3 { font-size: 1.25em; }
+.mdm-prosemirror h4 { font-size: 1em; }
+.mdm-prosemirror h5 { font-size: 0.875em; }
+.mdm-prosemirror h6 { font-size: 0.85em; color: #6a737d; }
+
+.mdm-prosemirror u {
+  text-decoration: underline;
 }
 
 .mdm-prosemirror blockquote {
-  border-left: 3px solid #c8c8c8;
+  border-left: 3px solid #d0d7de;
   margin-left: 0;
-  padding-left: 16px;
-  color: #555;
+  padding: 0 16px;
+  color: #57606a;
 }
 
 .mdm-prosemirror code {
@@ -77,13 +112,54 @@ body {
 }
 
 .mdm-prosemirror pre {
-  background: #f6f6f6;
-  border-radius: 4px;
-  padding: 12px 14px;
+  background: #2e3440; /* nord polar night */
+  color: #d8dee9;
+  border-radius: 6px;
+  padding: 14px 16px;
   overflow-x: auto;
+  line-height: 1.45;
+}
+
+.mdm-prosemirror pre code {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  font-size: 0.875em;
 }
 
 .mdm-prosemirror hr {
   border: none;
   border-top: 1px solid #d0d0d0;
+  margin: 24px 0;
 }
+
+/* Prism / refractor syntax tokens (Nord palette). */
+.mdm-prosemirror .token.comment,
+.mdm-prosemirror .token.prolog,
+.mdm-prosemirror .token.doctype,
+.mdm-prosemirror .token.cdata { color: #616e88; font-style: italic; }
+.mdm-prosemirror .token.punctuation { color: #81a1c1; }
+.mdm-prosemirror .token.property,
+.mdm-prosemirror .token.tag,
+.mdm-prosemirror .token.constant,
+.mdm-prosemirror .token.symbol,
+.mdm-prosemirror .token.deleted { color: #81a1c1; }
+.mdm-prosemirror .token.boolean,
+.mdm-prosemirror .token.number { color: #b48ead; }
+.mdm-prosemirror .token.selector,
+.mdm-prosemirror .token.attr-name,
+.mdm-prosemirror .token.string,
+.mdm-prosemirror .token.char,
+.mdm-prosemirror .token.builtin,
+.mdm-prosemirror .token.inserted { color: #a3be8c; }
+.mdm-prosemirror .token.operator,
+.mdm-prosemirror .token.entity,
+.mdm-prosemirror .token.url { color: #81a1c1; }
+.mdm-prosemirror .token.atrule,
+.mdm-prosemirror .token.attr-value,
+.mdm-prosemirror .token.keyword { color: #81a1c1; }
+.mdm-prosemirror .token.function,
+.mdm-prosemirror .token.class-name { color: #88c0d0; }
+.mdm-prosemirror .token.regex,
+.mdm-prosemirror .token.important,
+.mdm-prosemirror .token.variable { color: #ebcb8b; }

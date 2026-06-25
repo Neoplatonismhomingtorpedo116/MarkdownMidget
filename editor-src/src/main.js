@@ -3,13 +3,14 @@
 // pulls markdown with getMarkdown() and pushes it with setMarkdown(). The
 // WordPad-style toolbar in the WPF shell drives formatting through cmd().
 
-import { Editor, rootCtx, defaultValueCtx, editorViewOptionsCtx } from '@milkdown/kit/core';
+import { Editor, rootCtx, defaultValueCtx, editorViewOptionsCtx, commandsCtx } from '@milkdown/kit/core';
 import { commonmark } from '@milkdown/kit/preset/commonmark';
 import { gfm } from '@milkdown/kit/preset/gfm';
 import { history } from '@milkdown/kit/plugin/history';
 import { listener, listenerCtx } from '@milkdown/kit/plugin/listener';
-import { callCommand, replaceAll, getMarkdown } from '@milkdown/kit/utils';
+import { callCommand, replaceAll, getMarkdown, insert, $useKeymap } from '@milkdown/kit/utils';
 import { nord } from '@milkdown/theme-nord';
+import { prism, prismConfig } from '@milkdown/plugin-prism';
 
 import {
   toggleStrongCommand,
@@ -19,15 +20,39 @@ import {
   wrapInBulletListCommand,
   wrapInOrderedListCommand,
   wrapInBlockquoteCommand,
+  createCodeBlockCommand,
   turnIntoTextCommand,
   insertHrCommand,
 } from '@milkdown/kit/preset/commonmark';
 import { toggleStrikethroughCommand } from '@milkdown/kit/preset/gfm';
 import { underline, toggleUnderlineCommand } from './underline.js';
 
+// Syntax-highlighting languages for fenced code blocks.
+import { refractor } from 'refractor';
+import csharp from 'refractor/csharp';
+import javascript from 'refractor/javascript';
+import typescript from 'refractor/typescript';
+import css from 'refractor/css';
+import markup from 'refractor/markup'; // html / xml
+
 import '@milkdown/kit/prose/view/style/prosemirror.css';
 import '@milkdown/theme-nord/style.css';
 import '../styles/editor.css';
+
+[csharp, javascript, typescript, css, markup].forEach((l) => refractor.register(l));
+
+// Headings + paragraph keymap: Ctrl+1..Ctrl+5 => H1..H5, Ctrl+0 => paragraph.
+const headingKeymap = $useKeymap('mdmHeadingKeymap', {
+  Paragraph: {
+    shortcuts: 'Mod-0',
+    command: (ctx) => { const c = ctx.get(commandsCtx); return () => c.call(turnIntoTextCommand.key); },
+  },
+  H1: { shortcuts: 'Mod-1', command: (ctx) => { const c = ctx.get(commandsCtx); return () => c.call(wrapInHeadingCommand.key, 1); } },
+  H2: { shortcuts: 'Mod-2', command: (ctx) => { const c = ctx.get(commandsCtx); return () => c.call(wrapInHeadingCommand.key, 2); } },
+  H3: { shortcuts: 'Mod-3', command: (ctx) => { const c = ctx.get(commandsCtx); return () => c.call(wrapInHeadingCommand.key, 3); } },
+  H4: { shortcuts: 'Mod-4', command: (ctx) => { const c = ctx.get(commandsCtx); return () => c.call(wrapInHeadingCommand.key, 4); } },
+  H5: { shortcuts: 'Mod-5', command: (ctx) => { const c = ctx.get(commandsCtx); return () => c.call(wrapInHeadingCommand.key, 5); } },
+});
 
 // Map the host's logical command names to Milkdown command keys (+ optional payload).
 const COMMANDS = {
@@ -47,6 +72,7 @@ const COMMANDS = {
   ordered: () => callCommand(wrapInOrderedListCommand.key),
   quote: () => callCommand(wrapInBlockquoteCommand.key),
   hr: () => callCommand(insertHrCommand.key),
+  codeblock: (lang) => callCommand(createCodeBlockCommand.key, lang || ''),
 };
 
 let editor = null;
@@ -79,11 +105,16 @@ const MDM = {
         });
       })
       .config(nord)
+      .config((ctx) => {
+        ctx.set(prismConfig.key, { configureRefractor: () => refractor });
+      })
       .use(commonmark)
       .use(gfm)
       .use(history)
       .use(listener)
       .use(underline)
+      .use(prism)
+      .use(headingKeymap)
       .create();
 
     postToHost({ type: 'ready' });
@@ -111,6 +142,14 @@ const MDM = {
     const factory = COMMANDS[name];
     if (!factory) return false;
     editor.action(factory(...args));
+    this.focus();
+    return true;
+  },
+
+  // Insert a markdown fragment (e.g. a link or image) at the cursor.
+  insertMarkdown(md) {
+    if (!editor || !md) return false;
+    editor.action(insert(md));
     this.focus();
     return true;
   },
