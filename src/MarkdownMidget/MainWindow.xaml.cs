@@ -223,9 +223,9 @@ public partial class MainWindow : Window
         MenuViewSource.IsChecked = on;
         StatusMode.Text = on ? "Markdown source" : "WYSIWYG";
 
-        // The button shows the view it switches TO: braces = markdown source,
-        // document = formatted (WYSIWYG).
-        SourceToggle.Content = on ? GlyphSource : GlyphRich;
+        // The button shows the view it switches TO: in source mode show the
+        // document glyph (-> formatted); in WYSIWYG show braces (-> source).
+        SourceToggle.Content = on ? GlyphRich : GlyphSource;
         SourceToggle.ToolTip = on
             ? "Switch to formatted view (Ctrl+E)"
             : "Edit markdown source (Ctrl+E)";
@@ -407,7 +407,7 @@ public partial class MainWindow : Window
         InsertMarkdownFragment($"[{text}]({url})");
     }
 
-    private void Picture_Click(object sender, RoutedEventArgs e)
+    private async void Picture_Click(object sender, RoutedEventArgs e)
     {
         var dlg = new OpenFileDialog
         {
@@ -415,10 +415,36 @@ public partial class MainWindow : Window
             Filter = "Images (*.png;*.jpg;*.jpeg;*.gif;*.webp;*.svg)|*.png;*.jpg;*.jpeg;*.gif;*.webp;*.svg|All files (*.*)|*.*",
         };
         if (dlg.ShowDialog(this) != true) return;
+
         var alt = Path.GetFileNameWithoutExtension(dlg.FileName);
-        var url = dlg.FileName.Replace('\\', '/');
-        InsertMarkdownFragment($"![{alt}]({url})");
+        string uri;
+        try
+        {
+            // Embed the image as a base64 data URI so it renders inside the
+            // sandboxed WebView (which can't load local file: paths) and travels
+            // with the markdown. This bloats the document by design.
+            var bytes = await File.ReadAllBytesAsync(dlg.FileName);
+            uri = $"data:{MimeForImage(dlg.FileName)};base64,{Convert.ToBase64String(bytes)}";
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Couldn't read the image:\n{ex.Message}", "Insert Picture",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        InsertMarkdownFragment($"![{alt}]({uri})");
     }
+
+    private static string MimeForImage(string path) => Path.GetExtension(path).ToLowerInvariant() switch
+    {
+        ".png" => "image/png",
+        ".jpg" or ".jpeg" => "image/jpeg",
+        ".gif" => "image/gif",
+        ".webp" => "image/webp",
+        ".bmp" => "image/bmp",
+        ".svg" => "image/svg+xml",
+        _ => "application/octet-stream",
+    };
 
     private void CodeBlock_Click(object sender, RoutedEventArgs e)
     {

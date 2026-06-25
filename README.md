@@ -129,8 +129,10 @@ is deferred from this first iteration. Notable deferrals / divergences:
 - **Toolbar glyphs.** Old-school flat icon buttons (Segoe Fluent Icons). The
   `</>` mark is reserved for inline code; the source/WYSIWYG toggle uses braces
   (`{}`, → markdown source) and a document glyph (→ formatted view).
-- **Local picture preview.** Inserting a picture writes correct markdown
-  (`![alt](path)`), but a local-file image will not render inside the WYSIWYG
-  WebView (https origin can't load `file:` paths) — a follow-up (file mapping or
-  data-URI embed) is needed for in-editor preview.
+- **Pictures embed as data URIs.** Inserting a picture base64-encodes the file
+  into the markdown (`![alt](data:image/…;base64,…)`) so it renders inside the
+  sandboxed WebView and travels with the document. This deliberately bloats the
+  markdown; linking external/relative paths is a possible future option.
+- **Links** render styled (Nord blue, underlined) with the URL shown as a native
+  hover tooltip (a `title`-attribute decoration), like a browser.
 - Deferred: print, page setup, find/replace, color, theming.

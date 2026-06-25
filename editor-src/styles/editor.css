@@ -96,6 +96,17 @@ body {
   text-decoration: underline;
 }
 
+/* Links look and behave like browser links (the link-tooltip plugin adds the
+   hover preview card with the URL and edit/copy/remove actions). */
+.mdm-prosemirror a {
+  color: #5e81ac;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.mdm-prosemirror a:hover {
+  color: #81a1c1;
+}
+
 .mdm-prosemirror blockquote {
   border-left: 3px solid #d0d7de;
   margin-left: 0;

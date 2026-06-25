@@ -11,6 +11,9 @@ import { listener, listenerCtx } from '@milkdown/kit/plugin/listener';
 import { callCommand, replaceAll, getMarkdown, insert, $useKeymap } from '@milkdown/kit/utils';
 import { nord } from '@milkdown/theme-nord';
 import { prism, prismConfig } from '@milkdown/plugin-prism';
+import { $prose } from '@milkdown/kit/utils';
+import { Plugin, PluginKey } from '@milkdown/kit/prose/state';
+import { Decoration, DecorationSet } from '@milkdown/kit/prose/view';
 
 import {
   toggleStrongCommand,
@@ -40,6 +43,28 @@ import '@milkdown/theme-nord/style.css';
 import '../styles/editor.css';
 
 [csharp, javascript, typescript, css, markup].forEach((l) => refractor.register(l));
+
+// Show each link's URL as a native browser tooltip (title attribute), so links
+// behave like they would in a browser. Pairs with the link styling in editor.css.
+const linkTitle = $prose(() => new Plugin({
+  key: new PluginKey('mdmLinkTitle'),
+  props: {
+    decorations(state) {
+      const linkMark = state.schema.marks.link;
+      if (!linkMark) return DecorationSet.empty;
+      const decos = [];
+      state.doc.descendants((node, pos) => {
+        if (!node.isText) return;
+        const mark = node.marks.find((m) => m.type === linkMark);
+        if (mark) {
+          const href = mark.attrs.href || '';
+          decos.push(Decoration.inline(pos, pos + node.nodeSize, { title: href }));
+        }
+      });
+      return DecorationSet.create(state.doc, decos);
+    },
+  },
+}));
 
 // Headings + paragraph keymap: Ctrl+1..Ctrl+5 => H1..H5, Ctrl+0 => paragraph.
 const headingKeymap = $useKeymap('mdmHeadingKeymap', {
@@ -114,6 +139,7 @@ const MDM = {
       .use(listener)
       .use(underline)
       .use(prism)
+      .use(linkTitle)
       .use(headingKeymap)
       .create();
 
