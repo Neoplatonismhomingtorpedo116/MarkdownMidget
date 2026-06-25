@@ -79,6 +79,16 @@
                         <MenuItem Header="Heading _4" InputGestureText="Ctrl+4" Click="Style_Click" Tag="h4" />
                         <MenuItem Header="Heading _5" InputGestureText="Ctrl+5" Click="Style_Click" Tag="h5" />
                         <Separator />
+                        <MenuItem Header="_Code Block">
+                            <MenuItem Header="Plain" Tag="" Click="CodeBlock_Click" />
+                            <Separator />
+                            <MenuItem Header="C#" Tag="csharp" Click="CodeBlock_Click" />
+                            <MenuItem Header="JavaScript" Tag="javascript" Click="CodeBlock_Click" />
+                            <MenuItem Header="TypeScript" Tag="typescript" Click="CodeBlock_Click" />
+                            <MenuItem Header="HTML" Tag="html" Click="CodeBlock_Click" />
+                            <MenuItem Header="CSS" Tag="css" Click="CodeBlock_Click" />
+                        </MenuItem>
+                        <Separator />
                         <MenuItem Header="_Focus Style Box" InputGestureText="Ctrl+Shift+H" Click="FocusStyle_Click" />
                     </MenuItem>
                     <MenuItem Header="_Insert">
@@ -116,8 +126,8 @@
                         <Separator />
                         <!-- Paragraph style: replaces WordPad's font-size box ("Styles, not size"). -->
                         <TextBlock Text="Style:" VerticalAlignment="Center" Margin="4,0,4,0" />
-                        <ComboBox x:Name="StyleCombo" Width="150" IsTabStop="False"
-                                  ToolTip="Paragraph style (Ctrl+Shift+H)"
+                        <ComboBox x:Name="StyleCombo" Width="162" IsTabStop="False"
+                                  ToolTip="Block style (Ctrl+Shift+H)"
                                   SelectionChanged="StyleCombo_Changed">
                             <ComboBoxItem Content="Paragraph" Tag="paragraph" IsSelected="True" />
                             <ComboBoxItem Content="H1 &#8212; Heading 1" Tag="h1" />
@@ -125,6 +135,13 @@
                             <ComboBoxItem Content="H3 &#8212; Heading 3" Tag="h3" />
                             <ComboBoxItem Content="H4 &#8212; Heading 4" Tag="h4" />
                             <ComboBoxItem Content="H5 &#8212; Heading 5" Tag="h5" />
+                            <Separator />
+                            <ComboBoxItem Content="Code: Plain" Tag="codeblock:" />
+                            <ComboBoxItem Content="Code: C#" Tag="codeblock:csharp" />
+                            <ComboBoxItem Content="Code: JavaScript" Tag="codeblock:javascript" />
+                            <ComboBoxItem Content="Code: TypeScript" Tag="codeblock:typescript" />
+                            <ComboBoxItem Content="Code: HTML" Tag="codeblock:html" />
+                            <ComboBoxItem Content="Code: CSS" Tag="codeblock:css" />
                         </ComboBox>
                         <Separator />
                         <Button Style="{StaticResource ToolGlyph}" ToolTip="Bold (Ctrl+B)" Click="Bold_Click" Content="&#xE8DD;" />
@@ -162,6 +179,9 @@
                         <ToggleButton x:Name="SourceToggle" Style="{StaticResource ToolGlyph}"
                                       ToolTip="Edit markdown source (Ctrl+E)"
                                       Click="ToggleSource_Click" />
+                        <ToggleButton x:Name="MarksToggle" Style="{StaticResource ToolChar}"
+                                      ToolTip="Show formatting marks (¶)"
+                                      Click="ToggleMarks_Click" FontSize="15" Content="&#xB6;" />
                     </ToolBar>
                 </ToolBarTray>
             </StackPanel>

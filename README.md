@@ -113,6 +113,7 @@ magick -background none -density 512 midget.svg -define icon:auto-resize=256,128
 | Paragraph / Heading 1–5 | Ctrl+0 / Ctrl+1 … Ctrl+5 |
 | Focus style box   | Ctrl+Shift+H   |
 | Insert link       | Ctrl+K         |
+| Exit block (escape a code block) | Ctrl+Enter |
 | Toggle source     | Ctrl+E         |
 
 ## MVP scope notes

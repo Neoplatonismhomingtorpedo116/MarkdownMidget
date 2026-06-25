@@ -140,6 +140,32 @@ body {
   margin: 24px 0;
 }
 
+/* Tight list items: a list item's paragraph shouldn't carry the 16px block gap. */
+.mdm-prosemirror li > p {
+  margin: 0;
+}
+.mdm-prosemirror li {
+  margin: 1px 0;
+}
+.mdm-prosemirror li > ul,
+.mdm-prosemirror li > ol {
+  margin: 1px 0 2px;
+}
+
+/* Word-style formatting marks (¶ / ↵), hidden unless the editor is in "show marks"
+   mode. Deliberately light gray to keep the view from looking busy. */
+.mdm-mark {
+  color: #c4c8d0;
+  user-select: none;
+  pointer-events: none;
+}
+.mdm-mark-break {
+  padding: 0 1px;
+}
+.mdm-prosemirror:not(.mdm-show-marks) .mdm-mark {
+  display: none;
+}
+
 /* Prism / refractor syntax tokens (Nord palette). */
 .mdm-prosemirror .token.comment,
 .mdm-prosemirror .token.prolog,

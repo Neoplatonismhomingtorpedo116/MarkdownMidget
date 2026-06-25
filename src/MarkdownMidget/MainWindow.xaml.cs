@@ -26,6 +26,7 @@ public partial class MainWindow : Window
     private bool _editorReady;
     private bool _sourceMode;
     private bool _syncingStyle;
+    private bool _showMarks;
 
     public MainWindow()
     {
@@ -387,6 +388,16 @@ public partial class MainWindow : Window
     {
         if (_syncingStyle) return;
         if (StyleCombo.SelectedItem is ComboBoxItem item && item.Tag is string tag)
+            ApplyStyle(tag);
+    }
+
+    /// <summary>Applies a block style; "codeblock:&lt;lang&gt;" converts to a code block.</summary>
+    private void ApplyStyle(string tag)
+    {
+        const string codePrefix = "codeblock:";
+        if (tag.StartsWith(codePrefix, StringComparison.Ordinal))
+            InsertCodeBlock(tag[codePrefix.Length..]);
+        else
             EditorCommand(tag);
     }
 
@@ -490,6 +501,14 @@ public partial class MainWindow : Window
     }
 
     // ===== Misc UI =====
+
+    private void ToggleMarks_Click(object sender, RoutedEventArgs e)
+    {
+        _showMarks = MarksToggle.IsChecked == true;
+        if (_editorReady)
+            _ = RunEditorAsync($"window.MDM.showMarks({(_showMarks ? "true" : "false")})");
+        RefocusEditor();
+    }
 
     private void About_Click(object sender, RoutedEventArgs e)
     {

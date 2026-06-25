@@ -8,12 +8,14 @@ import { commonmark } from '@milkdown/kit/preset/commonmark';
 import { gfm } from '@milkdown/kit/preset/gfm';
 import { history } from '@milkdown/kit/plugin/history';
 import { listener, listenerCtx } from '@milkdown/kit/plugin/listener';
+import { trailing } from '@milkdown/kit/plugin/trailing';
 import { callCommand, replaceAll, getMarkdown, insert, $useKeymap, $command } from '@milkdown/kit/utils';
 import { nord } from '@milkdown/theme-nord';
 import { prism, prismConfig } from '@milkdown/plugin-prism';
 import { $prose } from '@milkdown/kit/utils';
-import { Plugin, PluginKey } from '@milkdown/kit/prose/state';
+import { Plugin, PluginKey, TextSelection } from '@milkdown/kit/prose/state';
 import { Decoration, DecorationSet } from '@milkdown/kit/prose/view';
+import { formattingMarks } from './marks.js';
 
 import {
   toggleStrongCommand,
@@ -88,6 +90,29 @@ const headingEnterKeymap = $useKeymap('mdmHeadingEnterKeymap', {
   },
 });
 
+// Ctrl+Enter inserts a plain paragraph after the current block and moves into it —
+// the escape hatch out of a code block (which otherwise swallows Enter), including
+// when the code block is the last thing in the document.
+const exitBlockCommand = $command('ExitBlockToParagraph', () => () => (state, dispatch) => {
+  const { $from } = state.selection;
+  const paragraph = state.schema.nodes.paragraph;
+  if (!paragraph) return false;
+  const after = $from.after($from.depth);
+  if (dispatch) {
+    const tr = state.tr.insert(after, paragraph.createAndFill());
+    tr.setSelection(TextSelection.create(tr.doc, after + 1)).scrollIntoView();
+    dispatch(tr);
+  }
+  return true;
+});
+
+const exitBlockKeymap = $useKeymap('mdmExitBlockKeymap', {
+  ExitBlockToParagraph: {
+    shortcuts: 'Mod-Enter',
+    command: (ctx) => { const c = ctx.get(commandsCtx); return () => c.call(exitBlockCommand.key); },
+  },
+});
+
 // Headings + paragraph keymap: Ctrl+1..Ctrl+5 => H1..H5, Ctrl+0 => paragraph.
 const headingKeymap = $useKeymap('mdmHeadingKeymap', {
   Paragraph: {
@@ -158,7 +183,8 @@ const MDM = {
           let style = 'paragraph';
           if (node) {
             if (node.type.name === 'heading') style = 'h' + (node.attrs.level || 1);
-            else style = node.type.name; // paragraph, blockquote, code_block, …
+            else if (node.type.name === 'code_block') style = 'codeblock:' + (node.attrs.language || '');
+            else style = node.type.name; // paragraph, blockquote, …
           }
           postToHost({ type: 'selection', style });
         });
@@ -174,8 +200,12 @@ const MDM = {
       .use(underline)
       .use(prism)
       .use(linkTitle)
+      .use(trailing)
+      .use(formattingMarks)
       .use(splitHeadingCommand)
       .use(headingEnterKeymap)
+      .use(exitBlockCommand)
+      .use(exitBlockKeymap)
       .use(headingKeymap)
       .create();
 
@@ -206,6 +236,12 @@ const MDM = {
     editor.action(factory(...args));
     this.focus();
     return true;
+  },
+
+  // Toggle Word-style formatting marks (¶ / ↵) on the editing surface.
+  showMarks(on) {
+    const root = document.querySelector('.mdm-prosemirror');
+    if (root) root.classList.toggle('mdm-show-marks', !!on);
   },
 
   // Insert a markdown fragment (e.g. a link or image) at the cursor.
