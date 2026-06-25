@@ -478,6 +478,17 @@ public partial class MainWindow : Window
             InsertCodeBlock(item.Tag as string ?? string.Empty);
     }
 
+    /// <summary>Opens the code-block language menu beneath the hybrid code button.</summary>
+    private void CodeBlockMenu_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button b && b.ContextMenu is ContextMenu cm)
+        {
+            cm.PlacementTarget = b;
+            cm.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+            cm.IsOpen = true;
+        }
+    }
+
     // ===== Misc UI =====
 
     private void About_Click(object sender, RoutedEventArgs e)

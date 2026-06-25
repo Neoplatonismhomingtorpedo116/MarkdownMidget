@@ -86,12 +86,13 @@
                         <MenuItem Header="_Picture…" Click="Picture_Click" />
                         <Separator />
                         <MenuItem Header="_Code Block">
+                            <MenuItem Header="Plain" Tag="" Click="CodeBlock_Click" />
+                            <Separator />
                             <MenuItem Header="C#" Tag="csharp" Click="CodeBlock_Click" />
                             <MenuItem Header="JavaScript" Tag="javascript" Click="CodeBlock_Click" />
                             <MenuItem Header="TypeScript" Tag="typescript" Click="CodeBlock_Click" />
                             <MenuItem Header="HTML" Tag="html" Click="CodeBlock_Click" />
                             <MenuItem Header="CSS" Tag="css" Click="CodeBlock_Click" />
-                            <MenuItem Header="Plain" Tag="" Click="CodeBlock_Click" />
                         </MenuItem>
                     </MenuItem>
                     <MenuItem Header="_View">
@@ -130,7 +131,22 @@
                         <Button Style="{StaticResource ToolGlyph}" ToolTip="Italic (Ctrl+I)" Click="Italic_Click" Content="&#xE8DB;" />
                         <Button Style="{StaticResource ToolGlyph}" ToolTip="Underline (Ctrl+U)" Click="Underline_Click" Content="&#xE8DC;" />
                         <Button Style="{StaticResource ToolGlyph}" ToolTip="Strikethrough" Click="Strike_Click" Content="&#xEDE0;" />
+                        <!-- Hybrid code button: main click = inline code, chevron = code block language. -->
                         <Button Style="{StaticResource ToolChar}" ToolTip="Inline code" Click="Code_Click" FontFamily="Consolas" Content="&lt;/&gt;" />
+                        <Button Style="{StaticResource ToolGlyph}" ToolTip="Code block…" Click="CodeBlockMenu_Click"
+                                MinWidth="16" FontSize="10" Content="&#xE70D;">
+                            <Button.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="Plain" Tag="" Click="CodeBlock_Click" />
+                                    <Separator />
+                                    <MenuItem Header="C#" Tag="csharp" Click="CodeBlock_Click" />
+                                    <MenuItem Header="JavaScript" Tag="javascript" Click="CodeBlock_Click" />
+                                    <MenuItem Header="TypeScript" Tag="typescript" Click="CodeBlock_Click" />
+                                    <MenuItem Header="HTML" Tag="html" Click="CodeBlock_Click" />
+                                    <MenuItem Header="CSS" Tag="css" Click="CodeBlock_Click" />
+                                </ContextMenu>
+                            </Button.ContextMenu>
+                        </Button>
                         <Separator />
                         <Button Style="{StaticResource ToolGlyph}" ToolTip="Bulleted list" Click="Bullet_Click" Content="&#xE8FD;" />
                         <Button Style="{StaticResource ToolGlyph}" ToolTip="Numbered list" Click="Ordered_Click">
