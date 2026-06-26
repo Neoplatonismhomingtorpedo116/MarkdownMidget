@@ -648,6 +648,24 @@ public partial class MainWindow : Window
         if (sender is MenuItem { Tag: string mode }) SetPageWidth(mode);
     }
 
+    /// <summary>Opens the document-width dropdown from the View toolbar button.</summary>
+    private void PageWidthMenu_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button b) return;
+        var cm = new ContextMenu
+        {
+            PlacementTarget = b,
+            Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom,
+        };
+        foreach (var (label, mode) in new[] { ("_Portrait", "portrait"), ("_Landscape", "landscape"), ("_Full Width", "full") })
+        {
+            var item = new MenuItem { Header = label, Tag = mode, IsCheckable = true, IsChecked = _pageWidth == mode };
+            item.Click += PageWidth_Click;
+            cm.Items.Add(item);
+        }
+        cm.IsOpen = true;
+    }
+
     private void SetPageWidth(string mode)
     {
         _pageWidth = mode;
@@ -1052,7 +1070,7 @@ public partial class MainWindow : Window
         var name = _currentPath is not null ? Path.GetFileName(_currentPath)
                  : _displayName ?? "Untitled";
         var readOnly = _readOnly ? "  [Read Only]" : "";
-        Title = $"{(_dirty ? "*" : "")}{name}{readOnly}\t|\t{ProductDesc}";
+        Title = $"{(_dirty ? "*" : "")}{name}{readOnly}  |  {ProductDesc}";
         StatusFile.Text = name;
     }
 

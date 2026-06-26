@@ -241,6 +241,8 @@
                         <ToggleButton x:Name="MarksToggle" Style="{StaticResource ToolChar}"
                                       ToolTip="Show formatting marks (¶)"
                                       Click="ToggleMarks_Click" FontSize="15" Content="&#xB6;" />
+                        <Button Style="{StaticResource ToolChar}" ToolTip="Document width"
+                                Click="PageWidthMenu_Click" FontSize="15" Content="&#x2194;" />
                     </ToolBar>
                 </ToolBarTray>
             </StackPanel>
