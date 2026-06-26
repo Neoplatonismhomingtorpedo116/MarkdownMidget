@@ -7,13 +7,42 @@ toolbar, and keyboard shortcuts — but with **markdown as the native (and only)
 format**. The default surface is a Word-like WYSIWYG editor; a toggle switches to
 raw-markdown source editing.
 
-Built on **.NET 10 / WPF** hosting a **WebView2** control. The editing surface is
+Built on **.NET / WPF** hosting a **WebView2** control. The editing surface is
 [Milkdown](https://milkdown.dev/) (a ProseMirror-based WYSIWYG markdown editor),
 so markdown is the literal document model rather than a lossy import/export.
 
+![Markdown Midget editing a document](art/screenshot.png)
+
+## Features
+
+- **WYSIWYG editing** with a one-key toggle to the raw **markdown source** (Ctrl+E).
+- Headings, **bold / italic / underline / strikethrough**, inline code, bulleted &
+  numbered lists, block quotes, and horizontal rules.
+- **Tables** (GFM) — insert dialog plus a native right-click menu for
+  insert/delete/select column, row, or table; styled with a dark header and
+  alternating rows.
+- **Pictures** embedded as data URIs (travel with the file), with an aspect-locked
+  **Resize** dialog.
+- **Links** rendered like a browser, with the URL as a hover tooltip.
+- **Fenced code blocks** with syntax highlighting (C#, JavaScript, TypeScript,
+  HTML, CSS).
+- **Formatting marks** toggle (¶ / ↵ / →) and **spell check**.
+- **Document width** (Portrait / Landscape / Full, remembered between sessions) and
+  a **zoom** indicator (Ctrl + mouse wheel).
+- **Recent files**, drag-and-drop to open, **read-only** mode, and a bundled Help
+  document.
+- Ships as a **single `.exe`**.
+
+## Requirements
+
+- **Windows 10/11** and the Microsoft Edge **WebView2 runtime** (already present on
+  Windows 11; otherwise a free download from Microsoft).
+- The framework-dependent build also needs the **.NET Desktop runtime**; the
+  self-contained build bundles it. See [Distribution](#distribution-single-file-builds).
+
 ## Status
 
-First iteration (MVP). Windows-only for now; the editor core is web-based so a
+Alpha (v0.1.x). Windows-only for now; the editor core is web-based so a
 cross-platform shell (MAUI/Avalonia) is a realistic future step.
 
 ## Layout
@@ -126,7 +155,8 @@ is deferred from this first iteration. Notable deferrals / divergences:
 - **Ribbon → menu + toolbar.** WPF has no trivial Office ribbon, so the MVP uses
   a classic menu bar + toolbar with the same commands and shortcuts.
 - **Font size box → paragraph Style dropdown.** Markdown styles blocks
-  (Paragraph / Heading 1–3), not point sizes — the "Styles, not size" divergence.
+  (Paragraph / Heading 1–5 / code block), not point sizes — the "Styles, not size"
+  divergence.
 - **Underline → inline HTML.** Markdown has no underline; it round-trips as
   `<u>…</u>` (see above).
 - **Toolbar glyphs.** Old-school flat icon buttons (Segoe Fluent Icons). The
@@ -153,3 +183,12 @@ is deferred from this first iteration. Notable deferrals / divergences:
   `--readonly` command-line switch. Help ▸ View Help opens the bundled
   [HELP.md](HELP.md) read-only in a new instance.
 - Deferred: print, page setup, find/replace, color, theming.
+
+## License
+
+[MIT](LICENSE) © Funcular Labs.
+
+The bundled editor is built on [Milkdown](https://milkdown.dev/) /
+[ProseMirror](https://prosemirror.net/) with syntax highlighting via
+[Prism](https://prismjs.com/) / [refractor](https://github.com/wooorm/refractor),
+each under their own permissive licenses.

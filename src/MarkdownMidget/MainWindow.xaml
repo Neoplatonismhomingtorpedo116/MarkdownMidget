@@ -235,6 +235,7 @@
 
                     <!-- View toggles: usable in read-only. -->
                     <ToolBar Band="0" BandIndex="2">
+                        <Separator />
                         <ToggleButton x:Name="SourceToggle" Style="{StaticResource ToolGlyph}"
                                       ToolTip="Edit markdown source (Ctrl+E)"
                                       Click="ToggleSource_Click" />

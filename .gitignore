@@ -9,6 +9,7 @@ node_modules/
 # Generated editor bundle (rebuilt from editor-src via `npm run build`)
 src/MarkdownMidget/wwwroot/*.map
 
-# IDE
+# IDE / tooling
 .vs/
 *.suo
+.claude/
