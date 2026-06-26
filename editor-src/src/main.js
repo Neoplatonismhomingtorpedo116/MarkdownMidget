@@ -17,7 +17,7 @@ import { $prose } from '@milkdown/kit/utils';
 import { Plugin, PluginKey, TextSelection } from '@milkdown/kit/prose/state';
 import { Decoration, DecorationSet } from '@milkdown/kit/prose/view';
 import { formattingMarks } from './marks.js';
-import { tableCellEditing, installTableContextMenu, insertTableAction } from './tables.js';
+import { tableCellEditing, insertTableAction, runTableCommand, focusTableCell } from './tables.js';
 import { resizableImage, remarkImageSize } from './resizable-image.js';
 import { NodeSelection } from '@milkdown/kit/prose/state';
 
@@ -234,47 +234,54 @@ function postHistory() {
   });
 }
 
-// Right-click an image to resize it. Selects the image node and asks the host to
-// show the size dialog (the host then calls MDM.setImageSize).
-function installImageContextMenu(view) {
-  const menu = document.createElement('div');
-  menu.className = 'mdm-table-menu';
-  menu.style.display = 'none';
-  const item = document.createElement('div');
-  item.className = 'mdm-menu-item';
-  item.textContent = 'Resize…';
-  menu.appendChild(item);
-  document.body.appendChild(menu);
-  const hide = () => { menu.style.display = 'none'; };
-  let img = null;
+// Editor context menus are native (WPF) in the host. Here we detect what was
+// right-clicked (or where the Menu/Shift+F10 key fired) and ask the host to show
+// the appropriate menu at that point. The host calls back via MDM.tableCmd /
+// MDM.setImageSize / the Edit clipboard commands.
 
-  item.addEventListener('mousedown', (e) => {
-    e.preventDefault();
-    hide();
-    if (!img) return;
-    const natW = img.naturalWidth || img.width || 0;
-    const natH = img.naturalHeight || img.height || 0;
-    const curW = parseInt(img.getAttribute('width'), 10) || img.width || natW;
-    const curH = parseInt(img.getAttribute('height'), 10) || img.height || natH;
-    postToHost({ type: 'imageResize', curW, curH, natW, natH });
-    view.focus();
-  });
+function imageInfo(img) {
+  const natW = img.naturalWidth || img.width || 0;
+  const natH = img.naturalHeight || img.height || 0;
+  const curW = parseInt(img.getAttribute('width'), 10) || img.width || natW;
+  const curH = parseInt(img.getAttribute('height'), 10) || img.height || natH;
+  return { curW, curH, natW, natH };
+}
 
-  view.dom.addEventListener('contextmenu', (e) => {
-    if (!e.target || e.target.tagName !== 'IMG') { hide(); return; }
-    e.preventDefault();
-    e.stopImmediatePropagation();
-    img = e.target;
+function requestContextMenu(view, clientX, clientY, img) {
+  if (img && img.tagName === 'IMG') {
     try {
       const pos = view.posAtDOM(img, 0);
       view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, pos)));
-    } catch (_) { /* selection may fail at edges */ }
-    menu.style.left = `${e.clientX}px`;
-    menu.style.top = `${e.clientY}px`;
-    menu.style.display = 'block';
+    } catch (_) { /* edge */ }
+    postToHost({ type: 'contextmenu', menu: 'image', x: clientX, y: clientY, ...imageInfo(img) });
+    return;
+  }
+  if (focusTableCell(view, clientX, clientY)) {
+    postToHost({ type: 'contextmenu', menu: 'table', x: clientX, y: clientY });
+    return;
+  }
+  postToHost({ type: 'contextmenu', menu: 'text', x: clientX, y: clientY });
+}
+
+function installContextMenus(view) {
+  view.dom.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    requestContextMenu(view, e.clientX, e.clientY, e.target);
   });
-  document.addEventListener('mousedown', (e) => { if (!menu.contains(e.target)) hide(); });
-  document.addEventListener('scroll', hide, true);
+  // Context-menu / Shift+F10 key: anchor at the caret and pick the menu by selection.
+  view.dom.addEventListener('keydown', (e) => {
+    if (e.key !== 'ContextMenu' && !(e.shiftKey && e.key === 'F10')) return;
+    e.preventDefault();
+    const sel = view.state.selection;
+    let x = 80, y = 80;
+    try { const c = view.coordsAtPos(sel.head); x = c.left; y = c.bottom; } catch (_) { /* fallback */ }
+    let img = null;
+    if (sel.node && sel.node.type.name === 'image') {
+      const dom = view.nodeDOM(sel.from);
+      if (dom && dom.tagName === 'IMG') img = dom;
+    }
+    requestContextMenu(view, x, y, img);
+  });
 }
 
 const MDM = {
@@ -337,8 +344,7 @@ const MDM = {
       .create();
 
     editorView = editor.ctx.get(editorViewCtx);
-    installImageContextMenu(editorView);
-    installTableContextMenu(editorView);
+    installContextMenus(editorView);
     postHistory();
     postToHost({ type: 'ready' });
     return true;
@@ -348,6 +354,10 @@ const MDM = {
     if (!editor) return;
     insertTableAction(editor, rows || 4, cols || 3, header !== false);
     this.focus();
+  },
+
+  tableCmd(name) {
+    if (editorView) runTableCommand(editorView, name);
   },
 
   getMarkdown() {

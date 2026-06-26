@@ -68,8 +68,9 @@ columns (default 3), rows (default 4), and whether to include a header row (GFM
 tables always keep a header row, so this controls whether your row count is in
 addition to it).
 
-**Right-click inside a table** for the only structure edits available in the
-WYSIWYG view:
+**Right-click inside a table** (or press the **Menu** / **Shift+F10** key) for the
+only structure edits available in the WYSIWYG view — a normal keyboard-navigable
+menu that dismisses with **Esc**:
 
 - **Insert** column left/right, row above/below
 - **Delete** column / row / table

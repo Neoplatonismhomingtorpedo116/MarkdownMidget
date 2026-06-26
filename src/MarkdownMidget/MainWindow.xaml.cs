@@ -43,6 +43,7 @@ public partial class MainWindow : Window
     private bool _startReadOnly;
     private bool _isHelpWindow;
     private bool _readOnly;
+    private (int curW, int curH, int natW, int natH) _imgResize;
     private readonly DispatcherTimer _dirtyTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
 
     public MainWindow()
@@ -184,14 +185,19 @@ public partial class MainWindow : Window
                         d.RootElement.TryGetProperty("canRedo", out var cr) && cr.GetBoolean());
                 }
                 break;
-            case "imageResize":
-                if (!_readOnly && !_sourceMode)
+            case "contextmenu":
                 {
                     using var d = JsonDocument.Parse(e.WebMessageAsJson);
-                    int Get(string k) => d.RootElement.TryGetProperty(k, out var v) ? v.GetInt32() : 0;
-                    var (cw, ch, nw, nh) = (Get("curW"), Get("curH"), Get("natW"), Get("natH"));
-                    // Defer so the dialog doesn't block the WebView2 message pump.
-                    Dispatcher.BeginInvoke(() => ShowImageResizeDialog(cw, ch, nw, nh));
+                    var menu = d.RootElement.TryGetProperty("menu", out var mv) ? mv.GetString() ?? "text" : "text";
+                    var x = d.RootElement.TryGetProperty("x", out var vx) ? vx.GetDouble() : 0;
+                    var y = d.RootElement.TryGetProperty("y", out var vy) ? vy.GetDouble() : 0;
+                    if (menu == "image")
+                    {
+                        int Get(string k) => d.RootElement.TryGetProperty(k, out var v) ? v.GetInt32() : 0;
+                        _imgResize = (Get("curW"), Get("curH"), Get("natW"), Get("natH"));
+                    }
+                    // Defer so showing the menu doesn't block the WebView2 message pump.
+                    Dispatcher.BeginInvoke(() => ShowEditorContextMenu(menu, x, y));
                 }
                 break;
         }
@@ -203,6 +209,38 @@ public partial class MainWindow : Window
         if (dlg.ShowDialog() == true)
             _ = RunEditorAsync($"window.MDM.setImageSize({dlg.NewWidth}, {dlg.NewHeight})");
         RefocusEditor();
+    }
+
+    // ===== Native editor context menus =====
+
+    private void ShowEditorContextMenu(string menu, double x, double y)
+    {
+        // Structure menus aren't available in read-only — fall back to the text menu.
+        var key = (!_readOnly && menu == "table") ? "TableContextMenu"
+                : (!_readOnly && menu == "image") ? "ImageContextMenu"
+                : "TextContextMenu";
+        if (FindResource(key) is not ContextMenu cm) return;
+        cm.PlacementTarget = Web;
+        cm.Placement = System.Windows.Controls.Primitives.PlacementMode.RelativePoint;
+        cm.HorizontalOffset = x;
+        cm.VerticalOffset = y;
+        cm.IsOpen = true;
+    }
+
+    private void TableCmd_Click(object sender, RoutedEventArgs e)
+    {
+        if (_readOnly || _sourceMode) return;
+        if (sender is MenuItem { Tag: string name })
+        {
+            _ = RunEditorAsync($"window.MDM.tableCmd({JsLiteral(name)})");
+            RefocusEditor();
+        }
+    }
+
+    private void ImageResize_Click(object sender, RoutedEventArgs e)
+    {
+        if (_readOnly || _sourceMode) return;
+        ShowImageResizeDialog(_imgResize.curW, _imgResize.curH, _imgResize.natW, _imgResize.natH);
     }
 
     /// <summary>Runs JS in the editor and returns its (JSON-decoded string) result.</summary>

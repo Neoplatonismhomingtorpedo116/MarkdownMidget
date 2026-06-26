@@ -28,6 +28,36 @@
             <Setter Property="Focusable" Value="False" />
             <Setter Property="IsTabStop" Value="False" />
         </Style>
+
+        <!-- Native editor context menus (shown on right-click / Menu key in WYSIWYG). -->
+        <ContextMenu x:Key="TableContextMenu">
+            <MenuItem Header="_Insert">
+                <MenuItem Header="Column _Left" Tag="colLeft" Click="TableCmd_Click" />
+                <MenuItem Header="Column _Right" Tag="colRight" Click="TableCmd_Click" />
+                <MenuItem Header="Row _Above" Tag="rowAbove" Click="TableCmd_Click" />
+                <MenuItem Header="Row _Below" Tag="rowBelow" Click="TableCmd_Click" />
+            </MenuItem>
+            <MenuItem Header="_Delete">
+                <MenuItem Header="_Column" Tag="delCol" Click="TableCmd_Click" />
+                <MenuItem Header="_Row" Tag="delRow" Click="TableCmd_Click" />
+                <MenuItem Header="_Table" Tag="delTable" Click="TableCmd_Click" />
+            </MenuItem>
+            <MenuItem Header="_Select">
+                <MenuItem Header="C_olumn" Tag="selCol" Click="TableCmd_Click" />
+                <MenuItem Header="Ro_w" Tag="selRow" Click="TableCmd_Click" />
+                <MenuItem Header="Ta_ble" Tag="selTable" Click="TableCmd_Click" />
+            </MenuItem>
+        </ContextMenu>
+        <ContextMenu x:Key="ImageContextMenu">
+            <MenuItem Header="_Resize…" Click="ImageResize_Click" />
+        </ContextMenu>
+        <ContextMenu x:Key="TextContextMenu">
+            <MenuItem Header="Cu_t" Click="Cut_Click" />
+            <MenuItem Header="_Copy" Click="Copy_Click" />
+            <MenuItem Header="_Paste" Click="Paste_Click" />
+            <Separator />
+            <MenuItem Header="Select _All" Click="SelectAll_Click" />
+        </ContextMenu>
     </Window.Resources>
     <DockPanel>
         <!-- ===== Top header: menu + toolbar on the left, mascot popped out at right ===== -->

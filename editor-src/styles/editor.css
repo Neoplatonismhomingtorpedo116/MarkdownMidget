@@ -192,35 +192,6 @@ body {
   pointer-events: none;
 }
 
-/* Right-click table context menu. */
-.mdm-table-menu {
-  position: fixed;
-  z-index: 9999;
-  min-width: 168px;
-  padding: 4px 0;
-  background: #ffffff;
-  border: 1px solid #c8ccd4;
-  border-radius: 6px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
-  font-family: "Segoe UI", system-ui, sans-serif;
-  font-size: 13px;
-  color: #2e3440;
-}
-.mdm-menu-item {
-  padding: 5px 18px;
-  cursor: default;
-  white-space: nowrap;
-}
-.mdm-menu-item:hover {
-  background: #569ad4;
-  color: #ffffff;
-}
-.mdm-menu-sep {
-  height: 1px;
-  margin: 4px 0;
-  background: #e2e4e8;
-}
-
 /* Tight list items: a list item's paragraph shouldn't carry the 16px block gap. */
 .mdm-prosemirror li > p {
   margin: 0;

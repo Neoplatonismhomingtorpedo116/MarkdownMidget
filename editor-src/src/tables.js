@@ -1,7 +1,7 @@
-// Minimal table editing for the WYSIWYG view: a right-click context menu with the
-// only structure-changing actions (insert/delete/select column/row/table), plus
-// "clear cell content on Backspace/Delete" and "typing replaces selected cells".
-// Anything more elaborate is left to direct markdown editing.
+// Table editing primitives. The right-click menu itself is a native WPF menu in
+// the host; here we expose the commands it invokes plus the cell-edit behavior
+// (clear on Backspace/Delete, replace on typing). Anything more elaborate is left
+// to direct markdown editing.
 
 import { $prose, callCommand } from '@milkdown/kit/utils';
 import { Plugin, TextSelection } from '@milkdown/kit/prose/state';
@@ -26,71 +26,46 @@ const selectTable = (state, dispatch) => {
   if (!isInTable(state)) return false;
   const rect = selectedRect(state);
   const cells = rect.map.map;
-  const first = rect.tableStart + cells[0];                 // top-left cell
-  const last = rect.tableStart + cells[cells.length - 1];   // bottom-right cell
+  const first = rect.tableStart + cells[0];
+  const last = rect.tableStart + cells[cells.length - 1];
   if (dispatch) dispatch(state.tr.setSelection(CellSelection.create(state.doc, first, last)));
   return true;
 };
 
-const MENU = [
-  ['Insert column left', addColumnBefore],
-  ['Insert column right', addColumnAfter],
-  ['Insert row above', addRowBefore],
-  ['Insert row below', addRowAfter],
-  ['—'],
-  ['Delete column', deleteColumn],
-  ['Delete row', deleteRow],
-  ['Delete table', deleteTable],
-  ['—'],
-  ['Select column', selectCol],
-  ['Select row', selectRow],
-  ['Select table', selectTable],
-];
+const COMMANDS = {
+  colLeft: addColumnBefore,
+  colRight: addColumnAfter,
+  rowAbove: addRowBefore,
+  rowBelow: addRowAfter,
+  delCol: deleteColumn,
+  delRow: deleteRow,
+  delTable: deleteTable,
+  selCol: selectCol,
+  selRow: selectRow,
+  selTable: selectTable,
+};
 
-function posInTable(view, clientX, clientY) {
+export function runTableCommand(view, name) {
+  const cmd = COMMANDS[name];
+  if (cmd) { cmd(view.state, view.dispatch); view.focus(); }
+}
+
+// Resolve a document coordinate to a table cell and put the cursor there so the
+// menu commands target it. Returns true if the point is inside a table.
+export function focusTableCell(view, clientX, clientY) {
   const at = view.posAtCoords({ left: clientX, top: clientY });
-  if (!at) return null;
+  if (!at) return false;
   const $p = view.state.doc.resolve(at.pos);
-  for (let d = $p.depth; d > 0; d--) if ($p.node(d).type.spec.tableRole) return $p;
-  return null;
-}
-
-export function installTableContextMenu(view) {
-  const menu = document.createElement('div');
-  menu.className = 'mdm-table-menu';
-  menu.style.display = 'none';
-  for (const [label, cmd] of MENU) {
-    if (!cmd) { const s = document.createElement('div'); s.className = 'mdm-menu-sep'; menu.appendChild(s); continue; }
-    const item = document.createElement('div');
-    item.className = 'mdm-menu-item';
-    item.textContent = label;
-    item.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-      hide();
-      cmd(view.state, view.dispatch);
-      view.focus();
-    });
-    menu.appendChild(item);
+  let inTable = false;
+  for (let d = $p.depth; d > 0; d--) if ($p.node(d).type.spec.tableRole) { inTable = true; break; }
+  if (!inTable) return false;
+  if (!(view.state.selection instanceof CellSelection)) {
+    view.dispatch(view.state.tr.setSelection(TextSelection.near($p)));
   }
-  document.body.appendChild(menu);
-  const hide = () => { menu.style.display = 'none'; };
-
-  view.dom.addEventListener('contextmenu', (e) => {
-    const $p = posInTable(view, e.clientX, e.clientY);
-    if (!$p) { hide(); return; }
-    e.preventDefault();
-    // Target the clicked cell unless a multi-cell selection is already active.
-    if (!(view.state.selection instanceof CellSelection)) {
-      view.dispatch(view.state.tr.setSelection(TextSelection.near($p)));
-    }
-    menu.style.left = `${e.clientX}px`;
-    menu.style.top = `${e.clientY}px`;
-    menu.style.display = 'block';
-  });
-  document.addEventListener('mousedown', (e) => { if (!menu.contains(e.target)) hide(); });
-  document.addEventListener('scroll', hide, true);
-  window.addEventListener('blur', hide);
+  return true;
 }
+
+export const isSelectionInTable = (state) => isInTable(state);
 
 // Backspace/Delete clears selected cells; typing replaces their content.
 export const tableCellEditing = $prose(() => new Plugin({
@@ -112,7 +87,7 @@ export const tableCellEditing = $prose(() => new Plugin({
         const { node, pos } = cells[i];
         tr.replaceWith(pos + 1, pos + node.nodeSize - 1, paragraph.create());
       }
-      const inner = tr.mapping.map(anchorPos) + 2; // inside anchor cell's new paragraph
+      const inner = tr.mapping.map(anchorPos) + 2;
       tr.setSelection(TextSelection.create(tr.doc, inner));
       tr.insertText(text, inner);
       view.dispatch(tr.scrollIntoView());
@@ -121,8 +96,8 @@ export const tableCellEditing = $prose(() => new Plugin({
   },
 }));
 
-// Insert a table. GFM tables always have a header row (row 0); when the caller does
-// not want one we add an extra row so the requested body-row count still fits.
+// GFM tables always have a header row (row 0); add an extra row when the caller
+// does not want one so the requested body-row count still fits.
 export function insertTableAction(editor, rows, cols, header) {
   const total = header ? rows : rows + 1;
   editor.action(callCommand(insertTableCommand.key, { row: Math.max(total, 2), col: Math.max(cols, 1) }));
