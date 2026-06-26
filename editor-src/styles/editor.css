@@ -23,7 +23,7 @@ body {
    writing surface reaches the bottom of its container instead of hugging the text. */
 .milkdown {
   width: 100%;
-  max-width: 850px;
+  max-width: var(--mdm-page-width, 850px);
   margin: 24px auto;
   background: #ffffff;
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.18);

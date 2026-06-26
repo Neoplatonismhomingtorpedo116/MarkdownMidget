@@ -414,6 +414,12 @@ const MDM = {
     if (editorView) editorView.setProps({ editable: () => !!on });
   },
 
+  // Document width: portrait (~A4), landscape (11/8 wider), or full window width.
+  setPageWidth(mode) {
+    const map = { portrait: '850px', landscape: '1169px', full: 'none' };
+    document.documentElement.style.setProperty('--mdm-page-width', map[mode] || '850px');
+  },
+
   // Apply width/height (px) to the currently selected image node.
   setImageSize(width, height) {
     if (!editorView) return;

@@ -85,6 +85,15 @@ editing the markdown source directly.
 The **¶** toolbar toggle shows Word-style marks in light gray: **¶** at paragraph
 and heading ends, **↵** at manual line breaks, and **→** for tabs.
 
+## Document width & zoom
+
+**View ▸ Document Width** sets how wide the page is: **Portrait** (narrow, the
+default), **Landscape** (wider), or **Full Width** (fills the window). The choice
+is remembered between sessions.
+
+The **zoom** percentage is shown at the bottom-right of the status bar — zoom with
+**Ctrl + mouse wheel**, and click the indicator to reset to 100%.
+
 ## Spell check
 
 **View ▸ Spell Check** toggles the red squiggles in both views. On by default.

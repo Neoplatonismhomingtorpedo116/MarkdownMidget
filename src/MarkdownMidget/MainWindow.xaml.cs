@@ -20,7 +20,8 @@ namespace MarkdownMidget;
 public partial class MainWindow : Window
 {
     private const string VirtualHost = "markdownmidget.invalid";
-    private const string AppVersion = "v0.1.1";
+    private const string AppVersion = "v0.1.2";
+    private const string ProductDesc = "Markdown Midget " + AppVersion;
 
     // Segoe Fluent Icons glyphs for the source/WYSIWYG toggle.
     private static readonly string GlyphSource = char.ConvertFromUtf32(0xE943); // braces {} = markdown source
@@ -43,6 +44,7 @@ public partial class MainWindow : Window
 
     private const int MaxRecent = 5;
     private readonly List<string> _recentFiles = new();
+    private string _pageWidth = "portrait"; // portrait | landscape | full (persisted)
     private bool _startReadOnly;
     private bool _isHelpWindow;
     private bool _readOnly;
@@ -59,6 +61,7 @@ public partial class MainWindow : Window
 
         LoadRecent();
         BuildRecentMenu();
+        LoadSettings();
 
         foreach (var arg in Environment.GetCommandLineArgs().Skip(1))
         {
@@ -103,6 +106,9 @@ public partial class MainWindow : Window
         // intercepts file drops and posts them to the host (see the 'fileDrop'
         // message). Drops on the toolbar/menu are still handled by Window_Drop.
         Web.AllowExternalDrop = true;
+
+        Web.ZoomFactorChanged += OnZoomChanged;
+        UpdateZoomIndicator();
 
         // Per-launch nonce defeats WebView2's disk cache so a rebuilt editor bundle
         // is always loaded fresh (the bundle refs inside index.html are also hashed).
@@ -167,6 +173,8 @@ public partial class MainWindow : Window
                 {
                     _ = SetCleanBaselineAsync();
                 }
+                _ = RunEditorAsync($"window.MDM.setPageWidth({JsLiteral(_pageWidth)})");
+                UpdatePageWidthChecks();
                 if (_startReadOnly) SetReadOnly(true);
                 break;
             case "change":
@@ -600,6 +608,75 @@ public partial class MainWindow : Window
         BuildRecentMenu();
     }
 
+    // ===== Settings (persisted) =====
+
+    private sealed class AppSettings
+    {
+        public string PageWidth { get; set; } = "portrait";
+    }
+
+    private static string SettingsStorePath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "MarkdownMidget", "settings.json");
+
+    private void LoadSettings()
+    {
+        try
+        {
+            if (!File.Exists(SettingsStorePath)) return;
+            var s = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(SettingsStorePath));
+            if (s is not null && s.PageWidth is "portrait" or "landscape" or "full")
+                _pageWidth = s.PageWidth;
+        }
+        catch { /* defaults are fine */ }
+    }
+
+    private void SaveSettings()
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(SettingsStorePath)!);
+            File.WriteAllText(SettingsStorePath, JsonSerializer.Serialize(new AppSettings { PageWidth = _pageWidth }));
+        }
+        catch { /* best-effort */ }
+    }
+
+    // ===== Document width =====
+
+    private void PageWidth_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem { Tag: string mode }) SetPageWidth(mode);
+    }
+
+    private void SetPageWidth(string mode)
+    {
+        _pageWidth = mode;
+        SaveSettings();
+        UpdatePageWidthChecks();
+        if (_editorReady)
+            _ = RunEditorAsync($"window.MDM.setPageWidth({JsLiteral(mode)})");
+        RefocusEditor();
+    }
+
+    private void UpdatePageWidthChecks()
+    {
+        PageWidthPortrait.IsChecked = _pageWidth == "portrait";
+        PageWidthLandscape.IsChecked = _pageWidth == "landscape";
+        PageWidthFull.IsChecked = _pageWidth == "full";
+    }
+
+    // ===== Zoom indicator =====
+
+    private void OnZoomChanged(object? sender, EventArgs e) => UpdateZoomIndicator();
+
+    private void UpdateZoomIndicator()
+    {
+        var pct = (int)System.Math.Round(Web.ZoomFactor * 100);
+        StatusZoom.Text = $"{pct}%";
+    }
+
+    private void StatusZoom_Reset(object sender, MouseButtonEventArgs e) => Web.ZoomFactor = 1.0;
+
     private void Exit_Click(object sender, RoutedEventArgs e) => Close();
 
     private async void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
@@ -975,8 +1052,7 @@ public partial class MainWindow : Window
         var name = _currentPath is not null ? Path.GetFileName(_currentPath)
                  : _displayName ?? "Untitled";
         var readOnly = _readOnly ? "  [Read Only]" : "";
-        const string gap = "                            "; // wide gap before the product name
-        Title = $"{(_dirty ? "*" : "")}{name}{readOnly}{gap}Markdown Midget {AppVersion}";
+        Title = $"{(_dirty ? "*" : "")}{name}{readOnly}\t|\t{ProductDesc}";
         StatusFile.Text = name;
     }
 

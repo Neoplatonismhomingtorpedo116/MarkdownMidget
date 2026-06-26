@@ -145,6 +145,15 @@
                         <MenuItem x:Name="MenuViewSource" Header="Edit Markdown _Source"
                                   IsCheckable="True" InputGestureText="Ctrl+E" Click="ToggleSource_Click" />
                         <Separator />
+                        <MenuItem Header="Document _Width">
+                            <MenuItem x:Name="PageWidthPortrait" Header="_Portrait" IsCheckable="True"
+                                      Tag="portrait" Click="PageWidth_Click" />
+                            <MenuItem x:Name="PageWidthLandscape" Header="_Landscape" IsCheckable="True"
+                                      Tag="landscape" Click="PageWidth_Click" />
+                            <MenuItem x:Name="PageWidthFull" Header="_Full Width" IsCheckable="True"
+                                      Tag="full" Click="PageWidth_Click" />
+                        </MenuItem>
+                        <Separator />
                         <MenuItem x:Name="MenuSpellCheck" Header="_Spell Check"
                                   IsCheckable="True" IsChecked="True" Click="SpellCheck_Click" />
                     </MenuItem>
@@ -243,12 +252,21 @@
 
         <!-- ===== Status bar ===== -->
         <StatusBar DockPanel.Dock="Bottom">
+            <StatusBar.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <DockPanel HorizontalAlignment="Stretch" />
+                </ItemsPanelTemplate>
+            </StatusBar.ItemsPanel>
             <StatusBarItem>
                 <TextBlock x:Name="StatusMode" Text="WYSIWYG" />
             </StatusBarItem>
             <Separator />
             <StatusBarItem>
                 <TextBlock x:Name="StatusFile" Text="Untitled" />
+            </StatusBarItem>
+            <StatusBarItem DockPanel.Dock="Right">
+                <TextBlock x:Name="StatusZoom" Text="100%" ToolTip="Zoom (Ctrl+scroll). Click to reset."
+                           Cursor="Hand" MouseLeftButtonUp="StatusZoom_Reset" Margin="0,0,6,0" />
             </StatusBarItem>
         </StatusBar>
 
