@@ -48,8 +48,15 @@ public partial class MainWindow : Window
     private bool _startReadOnly;
     private bool _isHelpWindow;
     private bool _readOnly;
+    private bool _closed;            // closed/no-document state — shows ClosedSplash
     private (int curW, int curH, int natW, int natH) _imgResize;
     private readonly DispatcherTimer _dirtyTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
+
+    // External-change tracking for the currently-open file.
+    private FileSystemWatcher? _watcher;
+    private bool _suppressWatcher;       // set true around our own writes
+    private bool _externalDialogOpen;    // re-entrancy guard
+    private DateTime _lastWatcherFireUtc = DateTime.MinValue;
 
     public MainWindow()
     {
@@ -385,6 +392,7 @@ public partial class MainWindow : Window
     private async Task SetSourceModeAsync(bool on)
     {
         if (on == _sourceMode) return;
+        if (_closed) return; // no document to flip between views
 
         if (on)
         {
@@ -478,6 +486,8 @@ public partial class MainWindow : Window
         _displayName = null;
         _suppressDirty = false;
         await SetCleanBaselineAsync();
+        SetClosed(false);
+        StartWatching(path);
     }
 
     private async void Save_Click(object sender, RoutedEventArgs e) => await SaveAsync(false);
@@ -504,22 +514,224 @@ public partial class MainWindow : Window
         }
 
         var markdown = await GetDocumentMarkdownAsync();
+        _suppressWatcher = true;
         try
         {
             await File.WriteAllTextAsync(path, markdown);
         }
         catch (Exception ex)
         {
+            _suppressWatcher = false;
             MessageBox.Show($"Couldn't save the file:\n{ex.Message}", "Markdown Midget",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return false;
         }
+        // Let any FS event from our own write settle, then re-enable watching.
+        _ = Dispatcher.BeginInvoke(new Action(() => _suppressWatcher = false), DispatcherPriority.Background);
+        var pathChanged = !string.Equals(_currentPath, path, StringComparison.OrdinalIgnoreCase);
         _currentPath = path;
         _cleanMarkdown = markdown; // new clean baseline; undo history is left intact
         _dirty = false;
         UpdateTitle();
+        if (pathChanged) StartWatching(path);
+        SetClosed(false);
         AddRecent(path);
         return true;
+    }
+
+    // ===== Close (no-document state) =====
+
+    private async void Close_Click(object sender, RoutedEventArgs e) => await CloseCurrentAsync();
+
+    private async Task CloseCurrentAsync()
+    {
+        if (_closed) return;
+        if (!await ConfirmDiscardAsync()) return;
+        StopWatching();
+        _suppressDirty = true;
+        await SetDocumentMarkdownAsync(string.Empty);
+        _currentPath = null;
+        _displayName = null;
+        _cleanMarkdown = string.Empty;
+        _dirty = false;
+        _suppressDirty = false;
+        UpdateTitle();
+        SetClosed(true);
+    }
+
+    private void SetClosed(bool on)
+    {
+        _closed = on;
+        ClosedSplash.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+        Web.Visibility = on || _sourceMode ? Visibility.Collapsed : Visibility.Visible;
+        SourceBox.Visibility = (!on && _sourceMode) ? Visibility.Visible : Visibility.Collapsed;
+        // When closed, all document-modifying controls are pointless — gray them out.
+        FormatToolBar.IsEnabled = !on && !_readOnly;
+        FormatMenu.IsEnabled = !on && !_readOnly;
+        StyleMenu.IsEnabled = !on && !_readOnly;
+        InsertMenu.IsEnabled = !on && !_readOnly;
+        SaveBtn.IsEnabled = !on && !_readOnly;
+        SaveMenu.IsEnabled = !on && !_readOnly;
+        if (on) { UndoBtn.IsEnabled = UndoMenu.IsEnabled = false; RedoBtn.IsEnabled = RedoMenu.IsEnabled = false; }
+        StatusMode.Text = on ? "No document" : (_sourceMode ? "Markdown source" : "WYSIWYG");
+    }
+
+    // ===== External change detection (FileSystemWatcher + backup + prompt) =====
+
+    private void StartWatching(string? path)
+    {
+        StopWatching();
+        if (path is null) return;
+        var dir = Path.GetDirectoryName(path);
+        var name = Path.GetFileName(path);
+        if (string.IsNullOrEmpty(dir) || string.IsNullOrEmpty(name)) return;
+        try
+        {
+            _watcher = new FileSystemWatcher(dir, name)
+            {
+                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.FileName | NotifyFilters.CreationTime,
+                EnableRaisingEvents = true,
+            };
+            _watcher.Changed += OnWatcherEvent;
+            _watcher.Created += OnWatcherEvent;
+            _watcher.Renamed += OnWatcherEvent;
+        }
+        catch
+        {
+            // A path on a transient share or special filesystem can't be watched;
+            // accept that external-change detection is best-effort here.
+            StopWatching();
+        }
+    }
+
+    private void StopWatching()
+    {
+        if (_watcher is null) return;
+        try { _watcher.EnableRaisingEvents = false; _watcher.Dispose(); } catch { /* ignore */ }
+        _watcher = null;
+    }
+
+    private void OnWatcherEvent(object sender, FileSystemEventArgs e)
+    {
+        if (_suppressWatcher || _externalDialogOpen) return;
+        var now = DateTime.UtcNow;
+        if ((now - _lastWatcherFireUtc).TotalMilliseconds < 400) return; // debounce duplicate events
+        _lastWatcherFireUtc = now;
+        Dispatcher.BeginInvoke(new Action(async () => await OnExternalChangeAsync(e.FullPath)));
+    }
+
+    private async Task OnExternalChangeAsync(string fullPath)
+    {
+        if (_externalDialogOpen || _currentPath is null) return;
+        if (!string.Equals(Path.GetFullPath(fullPath), Path.GetFullPath(_currentPath), StringComparison.OrdinalIgnoreCase))
+            return;
+
+        // Wait briefly for the writer to finish flushing.
+        await Task.Delay(120);
+
+        string newContent;
+        try { newContent = await File.ReadAllTextAsync(_currentPath); }
+        catch { return; /* file locked; another event will re-fire */ }
+
+        if (string.Equals(newContent, _cleanMarkdown, StringComparison.Ordinal)) return;
+
+        // Save the current (possibly unsaved) in-memory version as a timestamped backup.
+        var inMemory = await GetDocumentMarkdownAsync();
+        string backupPath;
+        try { backupPath = WriteTimestampedBackup(_currentPath, inMemory); }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Couldn't write a backup of your current version:\n{ex.Message}\n\nThe disk version was NOT reloaded.",
+                "Markdown Midget", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        _externalDialogOpen = true;
+        try
+        {
+            var dlg = new ExternalChangeDialog(Path.GetFileName(_currentPath), backupPath) { Owner = this };
+            dlg.ShowDialog();
+            switch (dlg.Choice)
+            {
+                case ExternalChangeChoice.Reload:
+                    await LoadDocumentAsync(newContent, _currentPath);
+                    break;
+                case ExternalChangeChoice.SaveAs:
+                    await HandleSaveAsAfterExternalChangeAsync(inMemory, newContent, backupPath);
+                    break;
+                case ExternalChangeChoice.Keep:
+                default:
+                    // Accept the disk content as the new baseline so dirty reflects "my
+                    // edits differ from disk"; the next Save will overwrite the disk.
+                    _cleanMarkdown = newContent;
+                    _ = UpdateDirtyAsync();
+                    break;
+            }
+        }
+        finally { _externalDialogOpen = false; }
+    }
+
+    private static string WriteTimestampedBackup(string originalPath, string content)
+    {
+        var dir = Path.GetDirectoryName(originalPath) ?? ".";
+        var name = Path.GetFileNameWithoutExtension(originalPath);
+        var ext = Path.GetExtension(originalPath);
+        var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
+        var path = Path.Combine(dir, $"{name}.{stamp}{ext}.bak");
+        // Highly unlikely collision (same second) — append milliseconds.
+        if (File.Exists(path))
+            path = Path.Combine(dir, $"{name}.{stamp}-{DateTime.Now.Millisecond:D3}{ext}.bak");
+        File.WriteAllText(path, content);
+        return path;
+    }
+
+    private async Task HandleSaveAsAfterExternalChangeAsync(string inMemory, string newDiskContent, string backupPath)
+    {
+        if (_currentPath is null) return;
+        var dir = Path.GetDirectoryName(_currentPath) ?? "";
+        var nameNoExt = Path.GetFileNameWithoutExtension(_currentPath);
+        var ext = Path.GetExtension(_currentPath);
+        var suggested = Path.GetFileName(backupPath).Replace(".bak", "");
+        var dlg = new SaveFileDialog
+        {
+            Title = "Save your current version as…",
+            Filter = "Markdown (*.md)|*.md|Text (*.txt)|*.txt|All files (*.*)|*.*",
+            DefaultExt = ext.Length > 0 ? ext : ".md",
+            InitialDirectory = dir,
+            FileName = suggested,
+        };
+        if (dlg.ShowDialog(this) != true)
+        {
+            // User backed out of save-as — treat like Keep Current.
+            _cleanMarkdown = newDiskContent;
+            _ = UpdateDirtyAsync();
+            return;
+        }
+
+        try { await File.WriteAllTextAsync(dlg.FileName, inMemory); }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Couldn't save:\n{ex.Message}", "Markdown Midget",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        AddRecent(dlg.FileName);
+
+        // Now ask which to keep viewing.
+        var fileName = Path.GetFileName(_currentPath);
+        var savedFileName = Path.GetFileName(dlg.FileName);
+        var pick = MessageBox.Show(
+            $"Saved your version to:\n{dlg.FileName}\n\nKeep editing your saved version ({savedFileName})?\n\nYes = open '{savedFileName}'\nNo = continue with the externally-modified '{fileName}'",
+            "Markdown Midget", MessageBoxButton.YesNo, MessageBoxImage.Question);
+        if (pick == MessageBoxResult.Yes)
+        {
+            // Already on disk with inMemory content; load + retarget.
+            await LoadDocumentAsync(inMemory, dlg.FileName);
+        }
+        else
+        {
+            await LoadDocumentAsync(newDiskContent, _currentPath);
+        }
     }
 
     // ===== Recent files (MRU, persisted) =====
@@ -705,9 +917,12 @@ public partial class MainWindow : Window
             if (await ConfirmDiscardAsync())
             {
                 _dirty = false;
+                StopWatching();
                 Close();
             }
+            return;
         }
+        StopWatching();
     }
 
     // ===== Edit menu (native shortcuts also work in each surface) =====
@@ -941,12 +1156,14 @@ public partial class MainWindow : Window
     private async void HandleDroppedContent(string name, string content)
     {
         if (!await ConfirmDiscardAsync()) return;
+        StopWatching();
         _suppressDirty = true;
         await SetDocumentMarkdownAsync(content);
         _currentPath = null;
         _displayName = name;
         _suppressDirty = false;
         await SetCleanBaselineAsync();
+        SetClosed(false);
     }
 
     private static void OpenInNewInstance(string path, bool readOnly = false, bool helpWindow = false)
@@ -1088,6 +1305,7 @@ public partial class MainWindow : Window
         Bind(Key.S, ModifierKeys.Control, (_, _) => Save_Click(this, new RoutedEventArgs()));
         Bind(Key.S, ModifierKeys.Control | ModifierKeys.Shift, (_, _) => SaveAs_Click(this, new RoutedEventArgs()));
         Bind(Key.E, ModifierKeys.Control, (_, _) => ToggleSource_Click(this, new RoutedEventArgs()));
+        Bind(Key.W, ModifierKeys.Control, (_, _) => Close_Click(this, new RoutedEventArgs()));
         Bind(Key.K, ModifierKeys.Control, (_, _) => Link_Click(this, new RoutedEventArgs()));
         Bind(Key.H, ModifierKeys.Control | ModifierKeys.Shift, (_, _) => FocusStyle_Click(this, new RoutedEventArgs()));
 

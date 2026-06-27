@@ -122,6 +122,14 @@ line with `--readonly`.
 - Native format is Markdown (`.md`). Plain text is also fine.
 - **File ▸ Open Recent** lists the last 5 files you opened or saved, with a
   **Clear Recent** option.
+- **File ▸ Close** (Ctrl+W) closes the current document and shows a gray "drop a
+  file here" placeholder. The window stays open and still accepts dropped files.
+- **External change detection:** if a file you have open is modified by another
+  program, Markdown Midget makes a **timestamped `.bak`** of your current version
+  (next to the file) and asks what to do — **Reload Disk Version**, **Save My
+  Version As…** (with a suggested name, then asks whether to switch to it or stay
+  on the externally-modified file), or **Keep Current** (your next Save will
+  overwrite the disk version).
 - **Drag a file onto the window** to open it. Dropping on the **toolbar or menu
   bar** opens it in place (if the current document is untitled and unmodified) or
   in a **new window**. Dropping on the **editing area** opens the file's text as a

@@ -153,13 +153,20 @@ body {
   border-collapse: collapse;
   border: 1px solid #c8ccd4;
   table-layout: fixed;
+  margin: 10px 0 12px;
 }
 .mdm-prosemirror th,
 .mdm-prosemirror td {
   border: 1px solid #d0d7de;
-  padding: 6px 11px;
+  padding: 3px 8px;
   text-align: left;
   vertical-align: top;
+  line-height: 1.35;
+}
+.mdm-prosemirror th > p,
+.mdm-prosemirror td > p {
+  margin: 0;
+  padding: 0;
 }
 /* Override the Nord theme's per-column cell striping: we want a dark header row
    and row (not column) stripes, so !important is needed to win the cascade. */

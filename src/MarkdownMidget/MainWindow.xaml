@@ -78,6 +78,8 @@
                         <MenuItem x:Name="SaveMenu" Header="_Save" InputGestureText="Ctrl+S" Click="Save_Click" />
                         <MenuItem Header="Save _As…" InputGestureText="Ctrl+Shift+S" Click="SaveAs_Click" />
                         <Separator />
+                        <MenuItem Header="C_lose" InputGestureText="Ctrl+W" Click="Close_Click" />
+                        <Separator />
                         <MenuItem Header="E_xit" Click="Exit_Click" />
                     </MenuItem>
                     <MenuItem Header="_Edit">
@@ -280,7 +282,8 @@
             </StatusBarItem>
         </StatusBar>
 
-        <!-- ===== Editing surface: WebView (WYSIWYG) over a raw-markdown box ===== -->
+        <!-- ===== Editing surface: WebView (WYSIWYG) over a raw-markdown box, with a
+             gray placeholder for the closed (no-document) state. ===== -->
         <Grid>
             <wv2:WebView2 x:Name="Web" />
             <TextBox x:Name="SourceBox"
@@ -293,6 +296,17 @@
                      FontFamily="Consolas" FontSize="14"
                      Padding="12"
                      Background="#FFFBFBFB" />
+            <Grid x:Name="ClosedSplash" Visibility="Collapsed" Background="#FF707479">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False">
+                    <Image Source="/Assets/midget-256.png" Width="96" Height="96"
+                           Opacity="0.55" Margin="0,0,0,18"
+                           RenderOptions.BitmapScalingMode="HighQuality" />
+                    <TextBlock Text="No document open" Foreground="#E4E6EA" FontSize="22"
+                               HorizontalAlignment="Center" Margin="0,0,0,8" />
+                    <TextBlock Text="Drop a file here, or use File ▸ Open (Ctrl+O) / New (Ctrl+N)"
+                               Foreground="#C7CBD0" FontSize="13" HorizontalAlignment="Center" />
+                </StackPanel>
+            </Grid>
         </Grid>
     </DockPanel>
 </Window>
