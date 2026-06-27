@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/). While
 under active alpha development (0.1.x), the minor version may carry breaking
 changes between alpha tags.
 
+## [Unreleased]
+
+## [0.1.5-alpha2] – 2026-06-27
+
+### Changed
+- **Landing state is now the "No document open" splash.** A fresh session does not
+  pre-create an Untitled document; the gray placeholder shows immediately, ready
+  to accept a dropped file, **Open**, or **New**.
+- The placeholder's prompt text now exposes **Open** and **New** as clickable
+  hyperlinks (the Ctrl+O / Ctrl+N shortcuts still work the same).
+- **Default Document Width** for new installs is now **Landscape** (was Portrait).
+  Existing users keep whatever they had persisted in `settings.json`.
+
 ## [0.1.5-alpha1] – 2026-06-27
 
 ### Added
@@ -73,6 +86,8 @@ changes between alpha tags.
 - **Formatting marks** toggle (¶ / ↵ / →).
 - Single-file `.exe` distribution.
 
+[Unreleased]: https://github.com/FuncularLabs/MarkdownMidget/compare/v0.1.5-alpha2...HEAD
+[0.1.5-alpha2]: https://github.com/FuncularLabs/MarkdownMidget/releases/tag/v0.1.5-alpha2
 [0.1.5-alpha1]: https://github.com/FuncularLabs/MarkdownMidget/releases/tag/v0.1.5-alpha1
 [0.1.4-alpha1]: https://github.com/FuncularLabs/MarkdownMidget/releases/tag/v0.1.4-alpha1
 [0.1.3]: https://github.com/FuncularLabs/MarkdownMidget/releases/tag/v0.1.3

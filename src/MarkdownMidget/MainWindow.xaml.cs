@@ -20,7 +20,7 @@ namespace MarkdownMidget;
 public partial class MainWindow : Window
 {
     private const string VirtualHost = "markdownmidget.invalid";
-    private const string AppVersion = "v0.1.5-alpha1";
+    private const string AppVersion = "v0.1.5-alpha2";
     private const string ProductDesc = "Markdown Midget " + AppVersion;
 
     // Segoe Fluent Icons glyphs for the source/WYSIWYG toggle.
@@ -44,7 +44,7 @@ public partial class MainWindow : Window
 
     private const int MaxRecent = 5;
     private readonly List<string> _recentFiles = new();
-    private string _pageWidth = "portrait"; // portrait | landscape | full (persisted)
+    private string _pageWidth = "landscape"; // portrait | landscape | full (persisted)
     private bool _startReadOnly;
     private bool _isHelpWindow;
     private bool _readOnly;
@@ -171,6 +171,8 @@ public partial class MainWindow : Window
                 break;
             case "ready":
                 _editorReady = true;
+                _ = RunEditorAsync($"window.MDM.setPageWidth({JsLiteral(_pageWidth)})");
+                UpdatePageWidthChecks();
                 if (_pendingOpenPath is { } p)
                 {
                     _pendingOpenPath = null;
@@ -178,10 +180,11 @@ public partial class MainWindow : Window
                 }
                 else
                 {
+                    // Default landing state is the "no document open" splash, so a
+                    // brand-new session is purely a drop target / Open / New prompt.
                     _ = SetCleanBaselineAsync();
+                    SetClosed(true);
                 }
-                _ = RunEditorAsync($"window.MDM.setPageWidth({JsLiteral(_pageWidth)})");
-                UpdatePageWidthChecks();
                 if (_startReadOnly) SetReadOnly(true);
                 break;
             case "change":
@@ -542,6 +545,9 @@ public partial class MainWindow : Window
     // ===== Close (no-document state) =====
 
     private async void Close_Click(object sender, RoutedEventArgs e) => await CloseCurrentAsync();
+
+    private void SplashOpen_Click(object sender, RoutedEventArgs e) => Open_Click(this, e);
+    private void SplashNew_Click(object sender, RoutedEventArgs e) => New_Click(this, e);
 
     private async Task CloseCurrentAsync()
     {

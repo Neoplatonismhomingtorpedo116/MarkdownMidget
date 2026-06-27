@@ -308,15 +308,20 @@
                      FontFamily="Consolas" FontSize="14"
                      Padding="12"
                      Background="#FFFBFBFB" />
-            <Grid x:Name="ClosedSplash" Visibility="Collapsed" Background="#FF707479">
-                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False">
+            <Grid x:Name="ClosedSplash" Visibility="Collapsed" Background="#FF707479" AllowDrop="True">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                     <Image Source="/Assets/midget-256.png" Width="96" Height="96"
                            Opacity="0.55" Margin="0,0,0,18"
                            RenderOptions.BitmapScalingMode="HighQuality" />
                     <TextBlock Text="No document open" Foreground="#E4E6EA" FontSize="22"
                                HorizontalAlignment="Center" Margin="0,0,0,8" />
-                    <TextBlock Text="Drop a file here, or use File ▸ Open (Ctrl+O) / New (Ctrl+N)"
-                               Foreground="#C7CBD0" FontSize="13" HorizontalAlignment="Center" />
+                    <TextBlock Foreground="#C7CBD0" FontSize="13" HorizontalAlignment="Center"
+                               TextWrapping="Wrap">
+                        Drop a file here, or <Hyperlink Foreground="#9CC4E4" Click="SplashOpen_Click">Open</Hyperlink>
+                        (Ctrl+O) /
+                        <Hyperlink Foreground="#9CC4E4" Click="SplashNew_Click">New</Hyperlink>
+                        (Ctrl+N).
+                    </TextBlock>
                 </StackPanel>
             </Grid>
         </Grid>
